@@ -1,0 +1,31 @@
+[package]
+name = "wh-ask"
+version = "0.1.0"
+edition = "2021"
+description = "Answer questions from a Wahapedia graph bundle."
+publish = false
+
+[[bin]]
+name = "wh-ask"
+path = "src/main.rs"
+required-features = ["desktop"]
+
+[features]
+default = ["desktop"]
+desktop = ["dep:eframe", "dep:llama-cpp-2", "dep:llama-cpp-sys-2"]
+
+[dependencies]
+caseless = "=0.2.1"
+clap = { version = "=4.5.20", features = ["derive"] }
+directories = "=5.0.1"
+eframe = { version = "=0.31.1", optional = true }
+llama-cpp-2 = { version = "=0.1.102", optional = true }
+# Keep the sys crate paired with llama-cpp-2 0.1.100. A newer sys crate
+# links the same native library and will not resolve next to this wrapper.
+llama-cpp-sys-2 = { version = "=0.1.100", optional = true }
+petgraph = { version = "=0.6.5", features = ["serde-1"] }
+postcard = { version = "=1.0.10", features = ["use-std"] }
+serde = { version = "=1.0.210", features = ["derive"] }
+serde_json = "=1.0.128"
+sha2 = "=0.10.8"
+wh-graph = { path = "../wh-graph" }

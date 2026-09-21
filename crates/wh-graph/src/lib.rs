@@ -9,8 +9,10 @@ mod html;
 mod model;
 mod textutil;
 
+pub use attrs::Attrs;
 pub use bundle::{build_bundle, validate_bundle, Summary};
 pub use error::GraphError;
+pub use model::{BundleManifest, EdgeRecord, GraphEdge, GraphNode, Passage};
 
 const BUILD_EXAMPLE: &str = "wh-graph build --corpus ./corpus --out ./bundle";
 const VALIDATE_EXAMPLE: &str = "wh-graph validate --bundle ./bundle";
