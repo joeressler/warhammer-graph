@@ -1,0 +1,869 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://warhammer-graph.local/schemas/corpus-v1.schema.json",
+  "title": "Wahapedia corpus v1 manifest",
+  "description": "Root schema for corpus v1 manifest.json. Each line of entities.jsonl validates against #/$defs/entity. See docs/specs/01-python-cli.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "edition",
+    "game",
+    "source_url",
+    "spec_url",
+    "last_update",
+    "fetched_at",
+    "files",
+    "warnings"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "edition": { "const": "10ed" },
+    "game": { "const": "warhammer-40k" },
+    "source_url": { "const": "https://wahapedia.ru/wh40k10ed/" },
+    "spec_url": {
+      "const": "https://wahapedia.ru/wh40k10ed/Export%20Data%20Specs.xlsx"
+    },
+    "last_update": {
+      "type": "string",
+      "description": "Value from Last_update.csv. Wahapedia documents this as GMT+3, format yyyy-MM-dd HH:mm:ss. Do not convert the zone.",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}$"
+    },
+    "fetched_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "UTC timestamp recorded by fetch and copied unchanged by assemble."
+    },
+    "files": {
+      "type": "array",
+      "minItems": 20,
+      "maxItems": 20,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/sourceFile" },
+      "description": "One entry for every file in the 10ed catalog, in catalog order, including Last_update.csv."
+    },
+    "warnings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/warning" }
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "sourceFile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "sha256", "logical_rows", "header"],
+      "properties": {
+        "name": {
+          "enum": [
+            "Last_update.csv",
+            "Factions.csv",
+            "Source.csv",
+            "Datasheets.csv",
+            "Datasheets_abilities.csv",
+            "Datasheets_keywords.csv",
+            "Datasheets_models.csv",
+            "Datasheets_options.csv",
+            "Datasheets_wargear.csv",
+            "Datasheets_unit_composition.csv",
+            "Datasheets_models_cost.csv",
+            "Datasheets_stratagems.csv",
+            "Datasheets_enhancements.csv",
+            "Datasheets_detachment_abilities.csv",
+            "Datasheets_leader.csv",
+            "Stratagems.csv",
+            "Abilities.csv",
+            "Enhancements.csv",
+            "Detachment_abilities.csv",
+            "Detachments.csv"
+          ]
+        },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "logical_rows": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Count of logical records after the header. Last_update.csv has one."
+        },
+        "header": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Header names with the trailing empty field from the final pipe removed."
+        }
+      }
+    },
+    "warning": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "entity_id", "column", "value"],
+      "properties": {
+        "code": { "const": "unresolved_foreign_key" },
+        "entity_id": { "type": "string", "minLength": 1 },
+        "column": { "type": "string", "minLength": 1 },
+        "value": { "type": "string", "minLength": 1 }
+      }
+    },
+    "nullableId": {
+      "type": ["string", "null"],
+      "minLength": 1
+    },
+    "entity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "edition", "table", "fields", "refs"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "edition:table:percent-encoded key. See the identity rules in the CLI spec."
+        },
+        "edition": { "const": "10ed" },
+        "table": { "$ref": "#/$defs/table" },
+        "fields": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "refs": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/nullableId" }
+        }
+      },
+      "allOf": [
+        { "$ref": "#/$defs/tableShapes/faction" },
+        { "$ref": "#/$defs/tableShapes/source" },
+        { "$ref": "#/$defs/tableShapes/datasheet" },
+        { "$ref": "#/$defs/tableShapes/datasheet_ability" },
+        { "$ref": "#/$defs/tableShapes/datasheet_keyword" },
+        { "$ref": "#/$defs/tableShapes/datasheet_model" },
+        { "$ref": "#/$defs/tableShapes/datasheet_option" },
+        { "$ref": "#/$defs/tableShapes/datasheet_wargear" },
+        { "$ref": "#/$defs/tableShapes/datasheet_unit_composition" },
+        { "$ref": "#/$defs/tableShapes/datasheet_model_cost" },
+        { "$ref": "#/$defs/tableShapes/datasheet_stratagem" },
+        { "$ref": "#/$defs/tableShapes/datasheet_enhancement" },
+        { "$ref": "#/$defs/tableShapes/datasheet_detachment_ability" },
+        { "$ref": "#/$defs/tableShapes/datasheet_leader" },
+        { "$ref": "#/$defs/tableShapes/stratagem" },
+        { "$ref": "#/$defs/tableShapes/ability" },
+        { "$ref": "#/$defs/tableShapes/enhancement" },
+        { "$ref": "#/$defs/tableShapes/detachment_ability" },
+        { "$ref": "#/$defs/tableShapes/detachment" }
+      ]
+    },
+    "table": {
+      "enum": [
+        "faction",
+        "source",
+        "datasheet",
+        "datasheet_ability",
+        "datasheet_keyword",
+        "datasheet_model",
+        "datasheet_option",
+        "datasheet_wargear",
+        "datasheet_unit_composition",
+        "datasheet_model_cost",
+        "datasheet_stratagem",
+        "datasheet_enhancement",
+        "datasheet_detachment_ability",
+        "datasheet_leader",
+        "stratagem",
+        "ability",
+        "enhancement",
+        "detachment_ability",
+        "detachment"
+      ]
+    },
+    "stringMap": {
+      "type": "object",
+      "additionalProperties": false
+    },
+    "tableShapes": {
+      "faction": {
+        "if": {
+          "properties": { "table": { "const": "faction" } },
+          "required": ["table"]
+        },
+        "then": {
+          "properties": {
+            "fields": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["id", "name", "link"],
+              "properties": {
+                "id": { "type": "string", "minLength": 1 },
+                "name": { "type": "string", "minLength": 1 },
+                "link": { "type": "string" }
+              }
+            },
+            "refs": {
+              "type": "object",
+              "additionalProperties": false,
+              "maxProperties": 0
+            }
+          }
+        }
+      },
+      "source": {
+        "if": {
+          "properties": { "table": { "const": "source" } },
+          "required": ["table"]
+        },
+        "then": {
+          "properties": {
+            "fields": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "name",
+                "type",
+                "edition",
+                "version",
+                "errata_date",
+                "errata_link"
+              ],
+              "properties": {
+                "id": { "type": "string", "minLength": 1 },
+                "name": { "type": "string" },
+                "type": { "type": "string" },
+                "edition": { "type": "string" },
+                "version": { "type": "string" },
+                "errata_date": { "type": "string" },
+                "errata_link": { "type": "string" }
+              }
+            },
+            "refs": {
+              "type": "object",
+              "additionalProperties": false,
+              "maxProperties": 0
+            }
+          }
+        }
+      },
+      "datasheet": {
+        "if": {
+          "properties": { "table": { "const": "datasheet" } },
+          "required": ["table"]
+        },
+        "then": {
+          "properties": {
+            "fields": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "name",
+                "faction_id",
+                "source_id",
+                "legend",
+                "role",
+                "loadout",
+                "transport",
+                "virtual",
+                "leader_head",
+                "leader_footer",
+                "damaged_w",
+                "damaged_description",
+                "link"
+              ],
+              "properties": {
+                "id": { "type": "string", "minLength": 1 },
+                "name": { "type": "string", "minLength": 1 },
+                "faction_id": { "type": "string", "minLength": 1 },
+                "source_id": { "type": "string" },
+                "legend": { "type": "string" },
+                "role": { "type": "string" },
+                "loadout": { "type": "string" },
+                "transport": { "type": "string" },
+                "virtual": { "enum": ["true", "false"] },
+                "leader_head": { "type": "string" },
+                "leader_footer": { "type": "string" },
+                "damaged_w": { "type": "string" },
+                "damaged_description": { "type": "string" },
+                "link": { "type": "string" }
+              }
+            },
+            "refs": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["faction_id", "source_id"],
+              "properties": {
+                "faction_id": { "$ref": "#/$defs/nullableId" },
+                "source_id": { "$ref": "#/$defs/nullableId" }
+              }
+            }
+          }
+        }
+      },
+      "datasheet_ability": {
+        "if": {
+          "properties": { "table": { "const": "datasheet_ability" } },
+          "required": ["table"]
+        },
+        "then": {
+          "properties": {
+            "fields": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "datasheet_id",
+                "line",
+                "ability_id",
+                "model",
+                "name",
+                "description",
+                "type",
+                "parameter"
+              ],
+              "properties": {
+                "datasheet_id": { "type": "string", "minLength": 1 },
+                "line": { "type": "string", "minLength": 1 },
+                "ability_id": { "type": "string" },
+                "model": { "type": "string" },
+                "name": { "type": "string" },
+                "description": { "type": "string" },
+                "type": { "type": "string" },
+                "parameter": { "type": "string" }
+              }
+            },
+            "refs": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["datasheet_id", "ability_id"],
+              "properties": {
+                "datasheet_id": { "$ref": "#/$defs/nullableId" },
+                "ability_id": { "$ref": "#/$defs/nullableId" }
+              }
+            }
+          }
+        }
+      },
+      "datasheet_keyword": {
+        "if": {
+          "properties": { "table": { "const": "datasheet_keyword" } },
+          "required": ["table"]
+        },
+        "then": {
+          "properties": {
+            "fields": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["datasheet_id", "keyword", "model", "is_faction_keyword"],
+              "properties": {
+                "datasheet_id": { "type": "string", "minLength": 1 },
+                "keyword": { "type": "string", "minLength": 1 },
+                "model": { "type": "string" },
+                "is_faction_keyword": { "enum": ["true", "false"] }
+              }
+            },
+            "refs": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["datasheet_id"],
+              "properties": {
+                "datasheet_id": { "$ref": "#/$defs/nullableId" }
+              }
+            }
+          }
+        }
+      },
+      "datasheet_model": {
+        "if": {
+          "properties": { "table": { "const": "datasheet_model" } },
+          "required": ["table"]
+        },
+        "then": {
+          "properties": {
+            "fields": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "datasheet_id",
+                "line",
+                "name",
+                "M",
+                "T",
+                "Sv",
+                "inv_sv",
+                "inv_sv_descr",
+                "W",
+                "Ld",
+                "OC",
+                "base_size",
+                "base_size_descr"
+              ],
+              "properties": {
+                "datasheet_id": { "type": "string", "minLength": 1 },
+                "line": { "type": "string", "minLength": 1 },
+                "name": { "type": "string" },
+                "M": { "type": "string" },
+                "T": { "type": "string" },
+                "Sv": { "type": "string" },
+                "inv_sv": { "type": "string" },
+                "inv_sv_descr": { "type": "string" },
+                "W": { "type": "string" },
+                "Ld": { "type": "string" },
+                "OC": { "type": "string" },
+                "base_size": { "type": "string" },
+                "base_size_descr": { "type": "string" }
+              }
+            },
+            "refs": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["datasheet_id"],
+              "properties": {
+                "datasheet_id": { "$ref": "#/$defs/nullableId" }
+              }
+            }
+          }
+        }
+      },
+      "datasheet_option": {
+        "if": {
+          "properties": { "table": { "const": "datasheet_option" } },
+          "required": ["table"]
+        },
+        "then": {
+          "properties": {
+            "fields": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["datasheet_id", "line", "button", "description"],
+              "properties": {
+                "datasheet_id": { "type": "string", "minLength": 1 },
+                "line": { "type": "string", "minLength": 1 },
+                "button": { "type": "string" },
+                "description": { "type": "string" }
+              }
+            },
+            "refs": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["datasheet_id"],
+              "properties": {
+                "datasheet_id": { "$ref": "#/$defs/nullableId" }
+              }
+            }
+          }
+        }
+      },
+      "datasheet_wargear": {
+        "if": {
+          "properties": { "table": { "const": "datasheet_wargear" } },
+          "required": ["table"]
+        },
+        "then": {
+          "properties": {
+            "fields": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "datasheet_id",
+                "line",
+                "line_in_wargear",
+                "dice",
+                "name",
+                "description",
+                "range",
+                "type",
+                "A",
+                "BS_WS",
+                "S",
+                "AP",
+                "D"
+              ],
+              "properties": {
+                "datasheet_id": { "type": "string", "minLength": 1 },
+                "line": { "type": "string", "minLength": 1 },
+                "line_in_wargear": { "type": "string" },
+                "dice": { "type": "string" },
+                "name": { "type": "string" },
+                "description": { "type": "string" },
+                "range": { "type": "string" },
+                "type": { "type": "string" },
+                "A": { "type": "string" },
+                "BS_WS": { "type": "string" },
+                "S": { "type": "string" },
+                "AP": { "type": "string" },
+                "D": { "type": "string" }
+              }
+            },
+            "refs": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["datasheet_id"],
+              "properties": {
+                "datasheet_id": { "$ref": "#/$defs/nullableId" }
+              }
+            }
+          }
+        }
+      },
+      "datasheet_unit_composition": {
+        "if": {
+          "properties": { "table": { "const": "datasheet_unit_composition" } },
+          "required": ["table"]
+        },
+        "then": {
+          "properties": {
+            "fields": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["datasheet_id", "line", "description"],
+              "properties": {
+                "datasheet_id": { "type": "string", "minLength": 1 },
+                "line": { "type": "string", "minLength": 1 },
+                "description": { "type": "string" }
+              }
+            },
+            "refs": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["datasheet_id"],
+              "properties": {
+                "datasheet_id": { "$ref": "#/$defs/nullableId" }
+              }
+            }
+          }
+        }
+      },
+      "datasheet_model_cost": {
+        "if": {
+          "properties": { "table": { "const": "datasheet_model_cost" } },
+          "required": ["table"]
+        },
+        "then": {
+          "properties": {
+            "fields": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["datasheet_id", "line", "description", "cost"],
+              "properties": {
+                "datasheet_id": { "type": "string", "minLength": 1 },
+                "line": { "type": "string", "minLength": 1 },
+                "description": { "type": "string" },
+                "cost": { "type": "string" }
+              }
+            },
+            "refs": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["datasheet_id"],
+              "properties": {
+                "datasheet_id": { "$ref": "#/$defs/nullableId" }
+              }
+            }
+          }
+        }
+      },
+      "datasheet_stratagem": {
+        "if": {
+          "properties": { "table": { "const": "datasheet_stratagem" } },
+          "required": ["table"]
+        },
+        "then": {
+          "properties": {
+            "fields": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["datasheet_id", "stratagem_id"],
+              "properties": {
+                "datasheet_id": { "type": "string", "minLength": 1 },
+                "stratagem_id": { "type": "string", "minLength": 1 }
+              }
+            },
+            "refs": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["datasheet_id", "stratagem_id"],
+              "properties": {
+                "datasheet_id": { "$ref": "#/$defs/nullableId" },
+                "stratagem_id": { "$ref": "#/$defs/nullableId" }
+              }
+            }
+          }
+        }
+      },
+      "datasheet_enhancement": {
+        "if": {
+          "properties": { "table": { "const": "datasheet_enhancement" } },
+          "required": ["table"]
+        },
+        "then": {
+          "properties": {
+            "fields": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["datasheet_id", "enhancement_id"],
+              "properties": {
+                "datasheet_id": { "type": "string", "minLength": 1 },
+                "enhancement_id": { "type": "string", "minLength": 1 }
+              }
+            },
+            "refs": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["datasheet_id", "enhancement_id"],
+              "properties": {
+                "datasheet_id": { "$ref": "#/$defs/nullableId" },
+                "enhancement_id": { "$ref": "#/$defs/nullableId" }
+              }
+            }
+          }
+        }
+      },
+      "datasheet_detachment_ability": {
+        "if": {
+          "properties": { "table": { "const": "datasheet_detachment_ability" } },
+          "required": ["table"]
+        },
+        "then": {
+          "properties": {
+            "fields": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["datasheet_id", "detachment_ability_id"],
+              "properties": {
+                "datasheet_id": { "type": "string", "minLength": 1 },
+                "detachment_ability_id": { "type": "string", "minLength": 1 }
+              }
+            },
+            "refs": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["datasheet_id", "detachment_ability_id"],
+              "properties": {
+                "datasheet_id": { "$ref": "#/$defs/nullableId" },
+                "detachment_ability_id": { "$ref": "#/$defs/nullableId" }
+              }
+            }
+          }
+        }
+      },
+      "datasheet_leader": {
+        "if": {
+          "properties": { "table": { "const": "datasheet_leader" } },
+          "required": ["table"]
+        },
+        "then": {
+          "properties": {
+            "fields": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["leader_id", "attached_id"],
+              "properties": {
+                "leader_id": { "type": "string", "minLength": 1 },
+                "attached_id": { "type": "string", "minLength": 1 }
+              }
+            },
+            "refs": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["leader_id", "attached_id"],
+              "properties": {
+                "leader_id": { "$ref": "#/$defs/nullableId" },
+                "attached_id": { "$ref": "#/$defs/nullableId" }
+              }
+            }
+          }
+        }
+      },
+      "stratagem": {
+        "if": {
+          "properties": { "table": { "const": "stratagem" } },
+          "required": ["table"]
+        },
+        "then": {
+          "properties": {
+            "fields": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "faction_id",
+                "name",
+                "id",
+                "type",
+                "cp_cost",
+                "legend",
+                "turn",
+                "phase",
+                "detachment",
+                "detachment_id",
+                "description"
+              ],
+              "properties": {
+                "faction_id": { "type": "string" },
+                "name": { "type": "string", "minLength": 1 },
+                "id": { "type": "string", "minLength": 1 },
+                "type": { "type": "string" },
+                "cp_cost": { "type": "string" },
+                "legend": { "type": "string" },
+                "turn": { "type": "string" },
+                "phase": { "type": "string" },
+                "detachment": { "type": "string" },
+                "detachment_id": { "type": "string" },
+                "description": { "type": "string" }
+              }
+            },
+            "refs": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["faction_id", "detachment_id"],
+              "properties": {
+                "faction_id": { "$ref": "#/$defs/nullableId" },
+                "detachment_id": { "$ref": "#/$defs/nullableId" }
+              }
+            }
+          }
+        }
+      },
+      "ability": {
+        "if": {
+          "properties": { "table": { "const": "ability" } },
+          "required": ["table"]
+        },
+        "then": {
+          "properties": {
+            "fields": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["id", "name", "legend", "faction_id", "description"],
+              "properties": {
+                "id": { "type": "string", "minLength": 1 },
+                "name": { "type": "string", "minLength": 1 },
+                "legend": { "type": "string" },
+                "faction_id": { "type": "string" },
+                "description": { "type": "string" }
+              }
+            },
+            "refs": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["faction_id"],
+              "properties": {
+                "faction_id": { "$ref": "#/$defs/nullableId" }
+              }
+            }
+          }
+        }
+      },
+      "enhancement": {
+        "if": {
+          "properties": { "table": { "const": "enhancement" } },
+          "required": ["table"]
+        },
+        "then": {
+          "properties": {
+            "fields": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "faction_id",
+                "id",
+                "name",
+                "cost",
+                "detachment",
+                "detachment_id",
+                "legend",
+                "description"
+              ],
+              "properties": {
+                "faction_id": { "type": "string" },
+                "id": { "type": "string", "minLength": 1 },
+                "name": { "type": "string", "minLength": 1 },
+                "cost": { "type": "string" },
+                "detachment": { "type": "string" },
+                "detachment_id": { "type": "string" },
+                "legend": { "type": "string" },
+                "description": { "type": "string" }
+              }
+            },
+            "refs": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["faction_id", "detachment_id"],
+              "properties": {
+                "faction_id": { "$ref": "#/$defs/nullableId" },
+                "detachment_id": { "$ref": "#/$defs/nullableId" }
+              }
+            }
+          }
+        }
+      },
+      "detachment_ability": {
+        "if": {
+          "properties": { "table": { "const": "detachment_ability" } },
+          "required": ["table"]
+        },
+        "then": {
+          "properties": {
+            "fields": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "faction_id",
+                "name",
+                "legend",
+                "description",
+                "detachment",
+                "detachment_id"
+              ],
+              "properties": {
+                "id": { "type": "string", "minLength": 1 },
+                "faction_id": { "type": "string" },
+                "name": { "type": "string", "minLength": 1 },
+                "legend": { "type": "string" },
+                "description": { "type": "string" },
+                "detachment": { "type": "string" },
+                "detachment_id": { "type": "string" }
+              }
+            },
+            "refs": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["faction_id", "detachment_id"],
+              "properties": {
+                "faction_id": { "$ref": "#/$defs/nullableId" },
+                "detachment_id": { "$ref": "#/$defs/nullableId" }
+              }
+            }
+          }
+        }
+      },
+      "detachment": {
+        "if": {
+          "properties": { "table": { "const": "detachment" } },
+          "required": ["table"]
+        },
+        "then": {
+          "properties": {
+            "fields": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["id", "faction_id", "name", "legend", "type"],
+              "properties": {
+                "id": { "type": "string", "minLength": 1 },
+                "faction_id": { "type": "string", "minLength": 1 },
+                "name": { "type": "string", "minLength": 1 },
+                "legend": { "type": "string" },
+                "type": { "type": "string" }
+              }
+            },
+            "refs": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["faction_id"],
+              "properties": {
+                "faction_id": { "$ref": "#/$defs/nullableId" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
