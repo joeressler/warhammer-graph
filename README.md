@@ -9,3 +9,11 @@ Read them in this order. Each later document uses the contract the earlier one f
 3. [Rust frontend](docs/specs/03-rust-frontend.md). `wh-ask` loads that bundle and answers questions with llama.cpp, citing node ids and Wahapedia links.
 
 These documents are the specifications for those tools. Wahapedia publishes CSV exports, not a live web service, and the corpus is downloaded when the CLI runs.
+
+`wh-graph` implements the Rust graph builder. It reads a corpus v1 directory and writes a petgraph bundle:
+
+```text
+cargo run -p wh-graph -- build --corpus ./corpus --out ./bundle
+```
+
+The contract is [docs/specs/02-rust-graph.md](docs/specs/02-rust-graph.md).
