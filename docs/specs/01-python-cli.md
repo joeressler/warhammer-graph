@@ -75,7 +75,7 @@ Each live file ends with a trailing `|`. Splitting the header on `|` therefore y
 
 `Last_update.csv` is one logical row. Its `last_update` value is copied into the manifest. It does not become an entity. The publisher documents the timestamp as `yyyy-MM-dd HH:mm:ss` in GMT+3. Store that string unchanged.
 
-Boolean columns are the strings `true` and `false`: `virtual` and `is_faction_keyword`. Description fields may contain HTML and newlines. Keep both. Wargear `type` is free text. In the current export the filled values are `Ranged` and `Melee`; empty is allowed. Do not coerce numbers.
+Boolean columns are the strings `true` and `false`: `virtual` and `is_faction_keyword`. Description fields may contain HTML and newlines. Keep both. Wargear `type` is free text. In the current export the filled values are `Ranged` and `Melee`; empty is allowed. `datasheet_keyword.keyword` and `datasheet_wargear.line` may be empty. The live export includes blank faction-keyword rows and wargear rows with an empty line; keep them. Do not coerce numbers.
 
 ## Parsing
 
@@ -304,6 +304,8 @@ Required cases:
 - A datasheet whose `faction_id` is non-blank and unknown is kept. `refs.faction_id` is null. The manifest has one `unresolved_foreign_key` warning. Exit code is 0.
 - A blank `ability_id` produces `refs.ability_id: null` and no warning.
 - Two keyword rows with the same datasheet, keyword, and model get ids that differ by the occurrence segment on the second row.
+- A keyword row with an empty `keyword` assembles and validates. The empty value is stored as-is.
+- A wargear row with an empty `line` assembles and validates. The empty value is stored as-is.
 - `fetch` against a local HTTP fixture reuses the cache when `Last_update.csv` is unchanged, and downloads again when it changes. The test server is in-process. The default test suite does not call `wahapedia.ru`.
 - `validate` on the fixture corpus exits 0. A corpus with `schema_version` other than 1 exits 5.
 
