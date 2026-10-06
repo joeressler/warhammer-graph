@@ -14,7 +14,7 @@ pub use attrs::Attrs;
 pub use bundle::{build_bundle, validate_bundle, Summary};
 pub use error::GraphError;
 pub use model::{BundleManifest, EdgeRecord, GraphNode, Passage};
-pub use store::{write_graph_db, EmbedCache, GraphStore, FORMAT_VERSION, GRAPH_DB};
+pub use store::{write_graph_db, GraphStore, FORMAT_VERSION, GRAPH_DB};
 
 const BUILD_EXAMPLE: &str = "wh-graph build --corpus ./corpus --out ./bundle";
 const VALIDATE_EXAMPLE: &str = "wh-graph validate --bundle ./bundle";
