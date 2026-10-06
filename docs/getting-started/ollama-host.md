@@ -89,6 +89,8 @@ It needs the real bundle. Local models are not deterministic, so run each questi
 
 ## Results
 
+The first table is the baseline before the reply changes, followed by the table after them.
+
 Run on 2026-10-06 against the real 26,406-node bundle, with Ollama 0.35.1, `mcp` 2.3.0, and `wh-mcp` 0.1.0. Each question ran twice per model at temperature 0, with the context window at 16,384 tokens and the host's defaults. Cells are passes out of runs.
 
 | Question | granite4.1:8b | granite4.1:3b | lfm2.5:8b-a1b | qwen3:0.6b | gpt-oss:20b |
@@ -122,11 +124,50 @@ What the table shows:
 - **`lfm2.5:8b-a1b-q8_0` also scored 16/22** but was the least tidy. It hit the step limit in 4 runs, looping on `search`, sometimes emitted a malformed tool call as plain text, and wrote its reasoning into the answer in every run. The host strips `<think>` text, and re-grading with it stripped changed none of the verdicts.
 - **`qwen3:0.6b` is too small** for 15 tools. It often said the tools did not contain the data when they did.
 
-What this suggests for the server, which are ideas and not yet changes:
+### After the reply changes
 
-- **Add counts where a model has to count.** A `count` on rosters, and a more prominent `total` on the long lists, would remove the two failures every model shares.
-- **Suggest better names for a misspelled one.** The suggestions come from word overlap, so "Taxtical Squad" suggests `Bike Squad`. An edit-distance match would suggest `Tactical Squad`.
-- **Say more plainly that a name is shared.** The ambiguity error lists the ids, but models can still pick one and carry on.
+Three changes followed from those results, and the same questions were run again the same day with the same settings:
+
+- Lists state their count in a `summary` sentence that comes first in the reply (`Khorne can field 21 units.`), and rosters have a `count`.
+- A misspelled name's suggestions are ordered by edit distance, so "Taxtical Squad" suggests `Tactical Squad` first.
+- An ambiguity error carries an `instruction` telling the agent not to pick one silently, and the server instructions say the same.
+
+Stratagem cost, turn, and phase, and enhancement cost, also became typed fields. Before and after, in passes out of 22:
+
+| Model | Before | After |
+|---|---|---|
+| `gpt-oss:20b` | 16 | **21** |
+| `granite4.1:8b` | 12 | **19** |
+| `lfm2.5:8b-a1b` | 16 | 16 |
+| `granite4.1:3b` | 10 | 15 |
+| `qwen3:0.6b` | 4 | 12 |
+
+| Question | granite4.1:8b | granite4.1:3b | lfm2.5:8b-a1b | qwen3:0.6b | gpt-oss:20b |
+|---|---|---|---|---|---|
+| `angron_invuln` | 2/2 | 2/2 | 2/2 | 2/2 | 2/2 |
+| `angron_weapons` | 2/2 | 2/2 | 2/2 | 0/2 | 2/2 |
+| `warboss_points` | 2/2 | 2/2 | 2/2 | 2/2 | 2/2 |
+| `dropship_transport` | 0/2 | 1/2 | 0/2 | 2/2 | 2/2 |
+| `imotekh_leads` | 2/2 | 0/2 | 2/2 | 0/2 | 2/2 |
+| `khorne_units` | 2/2 | 0/2 | 0/2 | 0/2 | 2/2 |
+| `idols_of_khorne` | 1/2 | 2/2 | 0/2 | 1/2 | 2/2 |
+| `fnp_count` | 2/2 | 2/2 | 2/2 | 2/2 | 2/2 |
+| `auric_stratagems` | 2/2 | 2/2 | 2/2 | 2/2 | 2/2 |
+| `typo_recovery` | 2/2 | 2/2 | 2/2 | 1/2 | 2/2 |
+| `daemonic_incursion` | 2/2 | 0/2 | 2/2 | 0/2 | 1/2 |
+| **Total** | **19/22** | **15/22** | **16/22** | **12/22** | **21/22** |
+| Median time per question | 6 s | 3 s | 5 s | 4 s | 8 s |
+
+What changed:
+
+- **Counting went from 0 of 10 to 10 of 10 for `fnp_count`** (all five models now say 116) **and from 0 to 4 of 10 for `khorne_units`** (`granite4.1:8b` and `gpt-oss:20b` pass both runs). Putting the number in a sentence at the top of the reply was enough for models that had been counting rows.
+- **The misspelling no longer misleads.** `granite4.1:8b` now reaches the Tactical Squad, and `typo_recovery` passes in 9 of 10 runs, up from 6.
+- **Ambiguity improved for `granite4.1:8b` (0 to 2 of 2) and `gpt-oss:20b` (0 to 1 of 2)**, which now report both detachments. `lfm2.5` already did. `granite4.1:3b` still answers for one, and `qwen3:0.6b` went from 1 to 0 of 2.
+- **The stratagem question is now 10 of 10**, up from 6, because the cost and timing are separate fields.
+- **`qwen3:0.6b` gained the most (4 to 12)** though it is still the weakest. Its remaining failures are tool-choice and runaway repetition.
+- **Still failing:** the transport capacity in free datasheet text (`granite4.1:8b` and `lfm2.5` 0 of 2), Imotekh's leaders for the small models, and `lfm2.5` stopping after one `search` on `idols_of_khorne`. Those need a typed transport field or better tool guidance, not a different reply shape.
+
+The same caveats apply: two runs at temperature 0, five models, eleven questions.
 
 To reproduce or extend the table, run `evaluate.py` with the models you have.
 
