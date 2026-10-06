@@ -5,3 +5,9 @@ __pycache__/
 dist/
 build/
 target/
+.cursor/
+cache/
+corpus/
+bundle/
+*.db-wal
+*.db-shm
