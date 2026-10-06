@@ -7,8 +7,7 @@ use serde::{Deserialize, Serialize};
 /// Node and edge attributes.
 ///
 /// JSONL writes a JSON object whose values are strings or arrays of strings.
-/// Postcard is not self-describing, so the binary form is an explicit list of
-/// tagged values that decodes back to that same object.
+/// Cozo stores that same object as a JSON string in `attrs_json`.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Attrs(BTreeMap<String, AttrValue>);
 

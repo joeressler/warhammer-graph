@@ -1,6 +1,6 @@
 # Rust graph builder: `wh-graph`
 
-This document specifies the crate that reads a corpus v1 directory and writes a petgraph bundle. The corpus contract is [01-python-cli.md](01-python-cli.md) and [corpus-v1.schema.json](../schemas/corpus-v1.schema.json). The frontend in [03-rust-frontend.md](03-rust-frontend.md) reads the bundle defined here.
+This document specifies the crate that reads a corpus v1 directory and writes a CozoDB graph bundle. The corpus contract is [01-python-cli.md](01-python-cli.md) and [corpus-v1.schema.json](../schemas/corpus-v1.schema.json). The library in [03-rust-library.md](03-rust-library.md) reads the bundle defined here.
 
 `wh-graph` does not download Wahapedia and does not parse CSV. It rejects a manifest whose `schema_version` is not `1`.
 
@@ -8,10 +8,10 @@ This document specifies the crate that reads a corpus v1 directory and writes a 
 
 - Package name `wh-graph`, binary `wh-graph`.
 - Rust edition 2021.
-- Dependencies: `clap` (derive), `petgraph` with feature `serde-1`, `serde` with `derive`, `serde_json`, `postcard` 1.x, `sha2`.
-- Graph type: `petgraph::stable_graph::StableGraph<GraphNode, GraphEdge>`.
+- Dependencies: `clap` (derive), `cozo` 0.7.x with `storage-sqlite`, `storage-sqlite-src`, and `graph-algo` (no RocksDB), `serde` with `derive`, `serde_json`, `sha2`.
+- Graph store: CozoDB SQLite file `graph.db`.
 
-`petgraph`'s own serde layout is not the contract. The JSONL files are the contract. `graph.postcard` is a snapshot that must describe the same nodes and edges. A later frontend may ignore the postcard file and rebuild the graph from JSONL.
+The JSONL files are the byte-stable contract. `graph.db` is a derived store of the same nodes, edges, and passages. A second build of the same corpus yields identical JSONL bytes. SQLite page layout is not required to be byte-identical.
 
 ## Commands
 
@@ -25,13 +25,13 @@ wh-graph validate --bundle ./bundle
 
 `--output text|json` defaults to `text`. `--dry-run` on `build` parses, builds, and prints counts, and does not write `--out`.
 
-`build` writes a temporary directory and renames it onto `--out` only after validation passes. A failed build leaves an existing bundle in place. A second build of the same corpus overwrites the bundle with identical `nodes.jsonl`, `edges.jsonl`, `passages.jsonl`, and `graph.postcard` bytes.
+`build` writes a temporary directory and renames it onto `--out` only after validation passes. A failed build leaves an existing bundle in place. A second build of the same corpus overwrites the bundle with identical `nodes.jsonl`, `edges.jsonl`, and `passages.jsonl` bytes.
 
 Text success:
 
 ```text
 bundle: ./bundle
-format_version: 1
+format_version: 2
 nodes: 100
 edges: 250
 passages: 100
@@ -44,7 +44,7 @@ corpus_fingerprint: <64 lowercase hex chars>
 | --- | --- |
 | 0 | Success. |
 | 2 | Missing flag or bad `--output`. Stderr includes one working command. |
-| 3 | Corpus or bundle cannot be read, JSON is malformed, or `schema_version` / `format_version` is not `1`. |
+| 3 | Corpus or bundle cannot be read, JSON is malformed, `schema_version` is not `1`, or `format_version` is not `2`. |
 | 4 | Graph validation failed. Stderr names the first failing node id and the rule. |
 
 ## What becomes a node
@@ -127,7 +127,7 @@ Non-wargear edges are emitted while scanning `entities.jsonl` from top to bottom
 
 Edge id: `10ed:edge:{KIND}:{16 hex chars}`. The hex is the first 16 lowercase hex digits of SHA-256 over the UTF-8 bytes of `from_id`, a newline, `to_id`, a newline, and canonical attrs JSON. Canonical attrs JSON has sorted keys, compact separators, and string values. An edge with no attrs hashes `{}`.
 
-`DATASHEET_CAN_LEAD` points from the leader datasheet to the datasheet it may join. The frontend can walk that edge in either direction.
+`DATASHEET_CAN_LEAD` points from the leader datasheet to the datasheet it may join. The library walks it forward for what a leader can lead and backward for who can lead a unit.
 
 ## Node and edge records
 
@@ -200,14 +200,15 @@ Join the parts below with a single newline, and omit a part whose value is empty
 | `Detachment` | `name` | `name`, `type`, `legend` |
 | `DetachmentAbility` | `name` | `name`, `detachment`, `legend`, `description` |
 
-Datasheet `text` does not repeat child models, weapons, or abilities. Those are their own passages. The frontend pulls them by walking edges.
+Datasheet `text` does not repeat child models, weapons, or abilities. Those are their own passages. The library pulls them by walking edges.
 
 `attrs` copies the string fields that are not already the whole text and that a filter might need:
 
 - Datasheet: `role`, `virtual`, `faction_id` (raw field, possibly joined as `attrs.faction_node` holding the corpus id or `""` when the ref is null).
-- Model: `line`, `M`, `T`, `Sv`, `W`, `Ld`, `OC`.
+- Model: `line`, `M`, `T`, `Sv`, `inv_sv`, `inv_sv_descr`, `W`, `Ld`, `OC`. Values are the export's printed strings, with HTML stripped from `inv_sv_descr`. `inv_sv` is `-` when the model has no invulnerable save, and is otherwise a bare number such as `4`, sometimes followed by `*`. `inv_sv_descr` is a free-text condition and is often empty. The bundle does not normalize these; [03-rust-library.md](03-rust-library.md) does.
 - Wargear: `line`, `profile_entity_ids`.
 - Keyword: `normalized` (the casefolded key).
+- Detachment: `type`, as printed. It is empty for a standard detachment and `Boarding Actions` for a Boarding Actions variant. A faction can have two detachments of the same name that differ only by this.
 - Edges: only the columns listed in the edge table.
 
 Keep `attrs` small. The full raw strings remain available by going back to the corpus; the bundle does not copy every CSV column onto every node.
@@ -221,7 +222,7 @@ Keep `attrs` small. The full raw strings remain available by going back to the c
 - `text` equals the node `text`.
 - `wahapedia_link` equals the node `source_url`.
 
-The graph builder does not compute embeddings. Vectors depend on the user's GGUF model. [03-rust-frontend.md](03-rust-frontend.md) embeds passages when it opens a bundle.
+The graph builder does not compute embeddings, and neither does the library in [03-rust-library.md](03-rust-library.md). Passage search is label search over `title` and `text`.
 
 ## Bundle manifest
 
@@ -229,7 +230,7 @@ The graph builder does not compute embeddings. Vectors depend on the user's GGUF
 
 ```json
 {
-  "format_version": 1,
+  "format_version": 2,
   "corpus_schema_version": 1,
   "edition": "10ed",
   "corpus_fingerprint": "<sha256 of entities.jsonl bytes>",
@@ -244,34 +245,38 @@ The graph builder does not compute embeddings. Vectors depend on the user's GGUF
 
 `corpus_fingerprint` is the lowercase hex SHA-256 of the exact `entities.jsonl` bytes. Count maps use kind names as keys, sorted, values as integers. `passage_count` equals `node_count`.
 
-## Postcard snapshot
+## Cozo store
 
-`graph.postcard` is `postcard` 1 encoding of `StableGraph<GraphNode, GraphEdge>`.
+`graph.db` is a CozoDB SQLite file opened with engine `sqlite`. Relations:
 
 ```text
-GraphNode { id, kind, label, text, attrs, source_url }
-GraphEdge { id, kind, from_id, to_id, attrs }
+node {id => kind, label, text, source_url, attrs_json}
+graph_edge {seq => id, kind, from_id, to_id, attrs_json}
+passage {seq => node_id, title, text, link}
+meta {key => value}
 ```
 
-`GraphNode.attrs` uses the same JSON types as the JSONL `attrs` object (`serde_json::Value` restricted to object, string, and array of string). `from_id` and `to_id` repeat the endpoint ids so the snapshot does not depend on petgraph index numbers.
+`seq` is the JSONL line order, starting at 0. `attrs_json` is the canonical attrs JSON string. `meta` holds `format_version`, `corpus_fingerprint`, and the SHA-256 hex of `nodes.jsonl` and `passages.jsonl`.
 
-`validate` loads the postcard graph and the JSONL files and checks set equality of:
+`validate` loads `graph.db` and the JSONL files and checks:
 
-- `(node.id, node.kind, node.label, node.text, node.source_url)`
-- `(edge.id, edge.kind, edge.from_id, edge.to_id, canonical attrs)`
+- set equality of `(node.id, node.kind, node.label, node.text, node.source_url)`
+- `seq` order equality of `(edge.id, edge.kind, edge.from, edge.to, canonical attrs)`
+- `seq` order equality of passage rows
+- `meta.format_version` and `meta.corpus_fingerprint` match `manifest.json`
 
-Index numbers may differ. Payload equality may not.
+A missing or unreadable `graph.db` fails validate. JSONL-only bundles are not accepted.
 
 ## Validation
 
 `build` and `validate` both enforce:
 
-- `format_version` is `1` and `corpus_schema_version` is `1`.
+- `format_version` is `2` and `corpus_schema_version` is `1`.
 - Every edge `from` and `to` is a node id.
 - Every `Datasheet` node is the target of exactly one `FACTION_HAS_DATASHEET` edge. A datasheet whose faction ref was null fails the build. Exit 4. Do not publish the bundle.
 - No two `Keyword` nodes share `attrs.normalized`.
 - `passage_count` equals the node count, and each passage's `node_id`, `title`, `text`, and `wahapedia_link` match that node.
-- Postcard payloads match JSONL, as above.
+- Cozo payloads match JSONL, as above.
 - Node and edge counts on the manifest match the files.
 
 A corpus warning for an unresolved non-faction link does not fail the build. The corresponding edge is absent.
@@ -285,6 +290,6 @@ Use a synthetic corpus fixture that already validates as corpus v1. Do not embed
 - An inline ability and a shared ability produce one extra `Ability` node for the inline row and one edge onto the shared ability. The shared edge's `attrs` include `type` and `parameter`.
 - Two wargear rows with the same `datasheet_id` and `line` and different `line_in_wargear` become one `Wargear` node. `profile_entity_ids` follows numeric `line_in_wargear` order.
 - `DATASHEET_CAN_LEAD` runs from `leader_id` to `attached_id`.
-- `build` twice yields identical JSONL and postcard bytes.
+- `build` twice yields identical JSONL bytes.
 - `validate` accepts that bundle. Flipping one edge `to` id to a missing node makes `validate` exit 4.
 - A manifest with `schema_version` `2` makes `build` exit 3.

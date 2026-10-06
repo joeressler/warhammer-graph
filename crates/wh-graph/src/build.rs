@@ -285,16 +285,20 @@ fn entity_node(entity: &Entity, by_id: &HashMap<&str, &Entity>) -> GraphNode {
             ]),
             Attrs::default(),
         ),
-        "detachment" => (
-            "Detachment",
-            field(entity, "name").to_string(),
-            join_parts([
-                part("name", field(entity, "name")),
-                part("type", field(entity, "type")),
-                part("legend", field(entity, "legend")),
-            ]),
-            Attrs::default(),
-        ),
+        "detachment" => {
+            let mut attrs = Attrs::default();
+            attrs.insert_text("type", field(entity, "type"));
+            (
+                "Detachment",
+                field(entity, "name").to_string(),
+                join_parts([
+                    part("name", field(entity, "name")),
+                    part("type", field(entity, "type")),
+                    part("legend", field(entity, "legend")),
+                ]),
+                attrs,
+            )
+        }
         "detachment_ability" => (
             "DetachmentAbility",
             field(entity, "name").to_string(),
@@ -358,8 +362,18 @@ fn model_text(entity: &Entity) -> String {
 
 fn model_attrs(entity: &Entity) -> Attrs {
     let mut attrs = Attrs::default();
-    for key in ["line", "M", "T", "Sv", "W", "Ld", "OC"] {
-        attrs.insert_text(key, field(entity, key));
+    for key in [
+        "line",
+        "M",
+        "T",
+        "Sv",
+        "inv_sv",
+        "inv_sv_descr",
+        "W",
+        "Ld",
+        "OC",
+    ] {
+        attrs.insert_text(key, part(key, field(entity, key)));
     }
     attrs
 }
@@ -730,7 +744,7 @@ fn manifest_for(
         *edge_counts_by_kind.entry(edge.kind.clone()).or_insert(0) += 1;
     }
     BundleManifest {
-        format_version: 1,
+        format_version: crate::store::FORMAT_VERSION,
         corpus_schema_version: 1,
         edition: corpus.edition.clone(),
         corpus_fingerprint: corpus.fingerprint.clone(),

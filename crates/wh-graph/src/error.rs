@@ -6,7 +6,7 @@ use std::path::Path;
 pub enum GraphError {
     /// Missing flag or a bad `--output`. Exit 2.
     Usage(String),
-    /// The corpus or bundle cannot be read, or a version is not 1. Exit 3.
+    /// The corpus or bundle cannot be read, or a version is not 2. Exit 3.
     Read(String),
     /// A graph rule failed. The message names a node id. Exit 4.
     Invalid(String),
