@@ -45,7 +45,7 @@ Every call that takes a unit, faction, detachment, keyword, or ability accepts a
 
 1. If the argument is a node id, it is used when the node has the expected kind. A node of another kind is `AskError::Invalid`, naming both kinds.
 2. Otherwise the argument's name key is looked up among nodes of the expected kind.
-   - No match is `AskError::NotFound` with up to 5 distinct names from [label search](#label-search) of that kind as suggestions.
+   - No match is `AskError::NotFound` with up to 5 distinct names as suggestions. Names nearest in spelling come first (edit distance of the name keys, counting an insertion, a deletion, a substitution, or a swap of two neighbouring letters as one edit, and allowing about one edit per four letters, at most three), so `Taxtical Squad` suggests `Tactical Squad`. If fewer than 5 are that close, the rest come from [label search](#label-search) of that kind, which matches shared words.
    - One match is the node.
    - Several matches are `AskError::Ambiguous`. Each candidate carries its `id`, `name`, and a `detail` that tells it apart from the others: a datasheet's faction, a detachment's faction followed by its type in parentheses when it has one (`Chaos Daemons (Boarding Actions)`), and for an enhancement, stratagem, or detachment rule the detachment or faction that owns it. The detail is empty for other kinds. The caller picks an id and calls again.
 
@@ -60,7 +60,7 @@ Every call that takes a unit, faction, detachment, keyword, or ability accepts a
 3. A passage is a strong match when its title key equals or contains the phrase, or when every search word is in its title or text. When any passage is a strong match, the rest are dropped. Otherwise every passage with at least one search word is kept.
 4. Results sort by score, highest first, then by shorter title, then by bundle order. Each result is a `NodeRef` and its `score`.
 
-Search does not stem or correct spelling. A misspelled name returns the passages that share words with it, which is what `NotFound` suggestions use.
+Search does not stem or correct spelling. A misspelled name returns the passages that share words with it. `NotFound` suggestions add spelling-based matches ahead of these, and `find_units` does the same for its fuzzy fallback.
 
 ## Graph navigation
 
@@ -104,12 +104,12 @@ Each list call reads edges from the bundle and returns every matching row in bun
 | `unit_detachment_rules(unit)` | `DATASHEET_HAS_DETACHMENT_ABILITY` from the unit | `RuleText`s of the detachment rules that name the unit |
 | `enhancement_units(enhancement)` | `ENHANCEMENT_APPLIES_TO_DATASHEET` from the enhancement | `UnitRef`s it can be given to |
 | `detachment_rule_units(rule)` | `DATASHEET_HAS_DETACHMENT_ABILITY` to the rule | `UnitRef`s the rule names |
-| `detachment_stratagems(detachment)` | `DETACHMENT_HAS_STRATAGEM` | `RuleText`s |
+| `detachment_stratagems(detachment)` | `DETACHMENT_HAS_STRATAGEM` | `Stratagem`s |
 | `detachment_rules(detachment)` | `DETACHMENT_HAS_ABILITY` | `RuleText`s |
-| `detachment_enhancements(detachment)` | `DETACHMENT_HAS_ENHANCEMENT` | `RuleText`s |
+| `detachment_enhancements(detachment)` | `DETACHMENT_HAS_ENHANCEMENT` | `Enhancement`s |
 | `faction_abilities(faction)` | `FACTION_HAS_ABILITY` | `RuleText`s, such as an army-wide rule |
-| `faction_stratagems(faction)` | `FACTION_HAS_STRATAGEM` | `RuleText`s across all the faction's detachments |
-| `faction_enhancements(faction)` | `FACTION_HAS_ENHANCEMENT` | `RuleText`s across all the faction's detachments |
+| `faction_stratagems(faction)` | `FACTION_HAS_STRATAGEM` | `Stratagem`s across all the faction's detachments |
+| `faction_enhancements(faction)` | `FACTION_HAS_ENHANCEMENT` | `Enhancement`s across all the faction's detachments |
 
 A `UnitRef` is `id`, `name`, `faction` (from the datasheet's `faction_node`), `role`, and `wahapedia_link`. A `NodeRef` is `id`, `kind`, `name`, and `wahapedia_link`.
 
@@ -151,7 +151,13 @@ Each weapon profile is its own node, so a weapon with strike and sweep profiles 
 
 ### Stratagems, enhancements, and rules
 
-A `RuleText` is `id`, `name`, and `text`, which is the node's text without its name line. A stratagem's text carries its type, cost, turn, and phase lines ahead of its `WHEN`, `TARGET`, and `EFFECT` rules. An enhancement's text carries its cost and detachment lines ahead of its rules. A faction ability's text keeps its flavor legend before the rules, because the legend is part of the node. The library does not split those fields.
+A `RuleText` is `id`, `name`, and `text`, which is the node's text without its name line. A faction ability's text keeps its flavor legend before the rules, because the legend is part of the node.
+
+A `Stratagem` is `id`, `name`, `stratagem_type`, `cp_cost`, `turn`, `phase`, `detachment`, and `text`. The five typed fields come from the node's attributes, so a caller never reads a cost out of prose. `cp_cost` is a number, or `None` when the export's value is not a whole number. `stratagem_type`, `detachment`, `turn`, and `phase` are `None` or empty when the export leaves them empty. `text` is only the `WHEN`, `TARGET`, and `EFFECT` rules: the header lines the node text starts with (type, cost, turn, phase, detachment) are dropped when they match the attributes.
+
+An `Enhancement` is `id`, `name`, `cost`, `detachment`, and `text`, built the same way. `cost` is a number or `None`.
+
+A bundle built before these attributes existed lacks them, so rebuild it.
 
 An enhancement can be given to several units, and a name can be shared by enhancements in different detachments, so `unit_enhancements` lists every applicable enhancement across all detachments and `enhancement_units` is `Ambiguous` for a shared name until an id is given. The same holds for `detachment_rule_units`.
 

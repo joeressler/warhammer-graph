@@ -794,6 +794,146 @@ fn a_shared_detachment_name_names_its_faction() {
     }
 }
 
+#[test]
+fn a_misspelled_name_suggests_the_name_it_is_nearest_to_in_spelling() {
+    let mut f = armies();
+    for (id, name) in [
+        ("10ed:datasheet:TAC", "Tactical Squad"),
+        ("10ed:datasheet:BIK", "Bike Squad"),
+        ("10ed:datasheet:SCO", "Scout Squad"),
+    ] {
+        f.datasheet(id, name, "10ed:faction:SM", &[]);
+    }
+    let (_dir, bundle) = f.write("spelling");
+
+    // The word-overlap suggestions used to offer only Bike, Scout, and other squads.
+    match bundle.unit("Taxtical Squad") {
+        Err(AskError::NotFound { suggestions, .. }) => assert_eq!(suggestions[0], "Tactical Squad", "{suggestions:?}"),
+        other => panic!("expected NotFound, got {other:?}"),
+    }
+    assert_eq!(bundle.find_units("Taxtical Squad")[0].name, "Tactical Squad");
+
+    // A swapped pair of letters and a dropped letter are one edit each.
+    for typo in ["Tacitcal Squad", "Tactcal Squad"] {
+        match bundle.unit(typo) {
+            Err(AskError::NotFound { suggestions, .. }) => assert_eq!(suggestions[0], "Tactical Squad", "{typo}"),
+            other => panic!("expected NotFound for {typo}, got {other:?}"),
+        }
+    }
+}
+
+#[test]
+fn a_name_far_from_everything_falls_back_to_shared_words() {
+    let mut f = armies();
+    f.datasheet("10ed:datasheet:BIK", "Bike Squad", "10ed:faction:SM", &[]);
+    let (_dir, bundle) = f.write("spelling-fallback");
+    match bundle.unit("Zzzz Squad") {
+        Err(AskError::NotFound { suggestions, .. }) => {
+            assert!(suggestions.contains(&"Bike Squad".to_string()), "{suggestions:?}");
+        }
+        other => panic!("expected NotFound, got {other:?}"),
+    }
+    // Nothing close and no shared word: no suggestions rather than wrong ones.
+    match bundle.unit("Qwxyz") {
+        Err(AskError::NotFound { suggestions, .. }) => assert!(suggestions.is_empty(), "{suggestions:?}"),
+        other => panic!("expected NotFound, got {other:?}"),
+    }
+}
+
+/// A detachment whose stratagems and enhancements carry typed header attributes,
+/// as a rebuilt bundle has them.
+fn typed_rules() -> Fixture {
+    let mut f = Fixture::default();
+    f.faction("10ed:faction:AC", "Adeptus Custodes");
+    f.node("10ed:detachment:AUR", "Detachment", "Auric Champions", "Auric Champions", &[]);
+    f.edge("FACTION_HAS_DETACHMENT", "10ed:faction:AC", "10ed:detachment:AUR", &[]);
+    f.node(
+        "10ed:stratagem:S1",
+        "Stratagem",
+        "SLAYER OF CHAMPIONS",
+        "SLAYER OF CHAMPIONS\nAuric Champions \u{2013} Epic Deed Stratagem\n1\nEither player's turn\nAny phase\nAuric Champions\nWHEN: Any phase.\n\nEFFECT: Pick a target.",
+        &[
+            ("type", "Auric Champions \u{2013} Epic Deed Stratagem"),
+            ("cp_cost", "1"),
+            ("turn", "Either player's turn"),
+            ("phase", "Any phase"),
+            ("detachment", "Auric Champions"),
+        ],
+    );
+    // A stratagem the export gives no timing or detachment for.
+    f.node(
+        "10ed:stratagem:S2",
+        "Stratagem",
+        "BARE",
+        "BARE\nCore Stratagem\n2\nWHEN: Now.",
+        &[("type", "Core Stratagem"), ("cp_cost", "2"), ("turn", ""), ("phase", ""), ("detachment", "")],
+    );
+    // A cost that is not a number.
+    f.node(
+        "10ed:stratagem:S3",
+        "Stratagem",
+        "ODD",
+        "ODD\nCore Stratagem\nX\nWHEN: Later.",
+        &[("type", "Core Stratagem"), ("cp_cost", "X"), ("turn", ""), ("phase", ""), ("detachment", "")],
+    );
+    for id in ["10ed:stratagem:S1", "10ed:stratagem:S2", "10ed:stratagem:S3"] {
+        f.edge("DETACHMENT_HAS_STRATAGEM", "10ed:detachment:AUR", id, &[]);
+    }
+    f.node(
+        "10ed:enhancement:E1",
+        "Enhancement",
+        "Auric Mantle",
+        "Auric Mantle\n20\nAuric Champions\nAn ancient relic.\nBearer has +1 Toughness.",
+        &[("cost", "20"), ("detachment", "Auric Champions")],
+    );
+    f.edge("DETACHMENT_HAS_ENHANCEMENT", "10ed:detachment:AUR", "10ed:enhancement:E1", &[]);
+    f.edge("FACTION_HAS_ENHANCEMENT", "10ed:faction:AC", "10ed:enhancement:E1", &[]);
+    f.edge("FACTION_HAS_STRATAGEM", "10ed:faction:AC", "10ed:stratagem:S1", &[]);
+    f.datasheet("10ed:datasheet:CG", "Custodian Guard", "10ed:faction:AC", &[]);
+    f.edge("ENHANCEMENT_APPLIES_TO_DATASHEET", "10ed:enhancement:E1", "10ed:datasheet:CG", &[]);
+    f
+}
+
+#[test]
+fn a_stratagems_cost_timing_and_rules_are_separate_fields() {
+    let (_dir, bundle) = typed_rules().write("typed-stratagems");
+    let stratagems = bundle.detachment_stratagems("Auric Champions").unwrap();
+    assert_eq!(stratagems.len(), 3);
+    let slayer = &stratagems[0];
+    assert_eq!(slayer.name, "SLAYER OF CHAMPIONS");
+    assert_eq!(slayer.stratagem_type.as_deref(), Some("Auric Champions \u{2013} Epic Deed Stratagem"));
+    assert_eq!(slayer.cp_cost, Some(1));
+    assert_eq!(slayer.turn.as_deref(), Some("Either player's turn"));
+    assert_eq!(slayer.phase.as_deref(), Some("Any phase"));
+    assert_eq!(slayer.detachment.as_deref(), Some("Auric Champions"));
+    assert_eq!(slayer.text, "WHEN: Any phase.\n\nEFFECT: Pick a target.");
+    assert_eq!(bundle.faction_stratagems("Adeptus Custodes").unwrap()[0], *slayer);
+}
+
+#[test]
+fn a_stratagem_with_missing_or_odd_fields_still_parses() {
+    let (_dir, bundle) = typed_rules().write("typed-stratagems-odd");
+    let stratagems = bundle.detachment_stratagems("Auric Champions").unwrap();
+    let bare = &stratagems[1];
+    assert_eq!((bare.cp_cost, bare.turn.as_deref(), bare.phase.as_deref(), bare.detachment.as_deref()), (Some(2), None, None, None));
+    assert_eq!(bare.text, "WHEN: Now.", "empty headers are not in the text, so nothing else is dropped");
+    let odd = &stratagems[2];
+    assert_eq!(odd.cp_cost, None, "a cost that is not a number is None");
+    assert_eq!(odd.text, "WHEN: Later.", "the header line is still dropped, because it matches the attribute");
+}
+
+#[test]
+fn an_enhancements_cost_and_detachment_are_separate_from_its_text() {
+    let (_dir, bundle) = typed_rules().write("typed-enhancements");
+    let found = bundle.detachment_enhancements("Auric Champions").unwrap();
+    assert_eq!(found.len(), 1);
+    assert_eq!(found[0].cost, Some(20));
+    assert_eq!(found[0].detachment.as_deref(), Some("Auric Champions"));
+    assert_eq!(found[0].text, "An ancient relic.\nBearer has +1 Toughness.");
+    assert_eq!(bundle.faction_enhancements("Adeptus Custodes").unwrap(), found);
+    assert_eq!(bundle.unit_enhancements("Custodian Guard").unwrap(), found);
+}
+
 /// A server holds one open bundle and answers many requests from it.
 #[test]
 fn a_bundle_can_be_shared_between_threads() {

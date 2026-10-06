@@ -13,7 +13,8 @@ use crate::bundle::Bundle;
 use crate::error::AskError;
 use crate::roster;
 use crate::types::{
-    Ability, AbilityHolder, Keyword, ModelProfile, NodeRef, PointsCost, Roster, RuleText,
+    Ability, AbilityHolder, Enhancement, Keyword, ModelProfile, NodeRef, PointsCost, Roster,
+    RuleText, Stratagem,
     UnitCard, UnitComposition, UnitRef, WargearOption, Weapon, WeaponStats,
 };
 
@@ -55,10 +56,19 @@ impl Bundle {
         if !exact.is_empty() {
             return exact;
         }
-        self.search(name, &["Datasheet"], 10)
-            .into_iter()
-            .filter_map(|hit| self.unit_ref(&hit.node.id))
-            .collect()
+        let mut found = Vec::new();
+        let mut seen = HashSet::new();
+        let by_spelling = self.similar("Datasheet", name, 10).into_iter().flat_map(|(_, ids)| ids);
+        let by_words = self.search(name, &["Datasheet"], 10).into_iter().map(|hit| hit.node.id);
+        for id in by_spelling.chain(by_words) {
+            if found.len() >= 10 {
+                break;
+            }
+            if seen.insert(id.clone()) {
+                found.extend(self.unit_ref(&id));
+            }
+        }
+        found
     }
 
     /// The full unit list for a faction, a chapter, or a Legiones Daemonica god.
@@ -213,9 +223,15 @@ impl Bundle {
     }
 
     /// Every enhancement that can be given to this unit, across all detachments.
-    pub fn unit_enhancements(&self, unit: &str) -> Result<Vec<RuleText>, AskError> {
+    pub fn unit_enhancements(&self, unit: &str) -> Result<Vec<Enhancement>, AskError> {
         let id = self.resolve("Datasheet", unit)?;
-        self.rules_into(&id, "ENHANCEMENT_APPLIES_TO_DATASHEET")
+        Ok(self
+            .edges_at(&id, "ENHANCEMENT_APPLIES_TO_DATASHEET")
+            .into_iter()
+            .filter(|edge| edge.to == id)
+            .filter_map(|edge| self.node(&edge.from))
+            .map(enhancement_of)
+            .collect())
     }
 
     /// The detachment rules that name this unit.
@@ -245,15 +261,15 @@ impl Bundle {
     }
 
     /// Every stratagem a faction has across its detachments.
-    pub fn faction_stratagems(&self, faction: &str) -> Result<Vec<RuleText>, AskError> {
+    pub fn faction_stratagems(&self, faction: &str) -> Result<Vec<Stratagem>, AskError> {
         let id = self.resolve("Faction", faction)?;
-        self.rules_from(&id, "FACTION_HAS_STRATAGEM")
+        self.stratagems_from(&id, "FACTION_HAS_STRATAGEM")
     }
 
     /// Every stratagem in a detachment.
-    pub fn detachment_stratagems(&self, detachment: &str) -> Result<Vec<RuleText>, AskError> {
+    pub fn detachment_stratagems(&self, detachment: &str) -> Result<Vec<Stratagem>, AskError> {
         let id = self.resolve("Detachment", detachment)?;
-        self.rules_from(&id, "DETACHMENT_HAS_STRATAGEM")
+        self.stratagems_from(&id, "DETACHMENT_HAS_STRATAGEM")
     }
 
     /// A detachment's own rules (its detachment abilities).
@@ -263,15 +279,15 @@ impl Bundle {
     }
 
     /// Every enhancement a detachment offers.
-    pub fn detachment_enhancements(&self, detachment: &str) -> Result<Vec<RuleText>, AskError> {
+    pub fn detachment_enhancements(&self, detachment: &str) -> Result<Vec<Enhancement>, AskError> {
         let id = self.resolve("Detachment", detachment)?;
-        self.rules_from(&id, "DETACHMENT_HAS_ENHANCEMENT")
+        self.enhancements_from(&id, "DETACHMENT_HAS_ENHANCEMENT")
     }
 
     /// Every enhancement a faction has across its detachments.
-    pub fn faction_enhancements(&self, faction: &str) -> Result<Vec<RuleText>, AskError> {
+    pub fn faction_enhancements(&self, faction: &str) -> Result<Vec<Enhancement>, AskError> {
         let id = self.resolve("Faction", faction)?;
-        self.rules_from(&id, "FACTION_HAS_ENHANCEMENT")
+        self.enhancements_from(&id, "FACTION_HAS_ENHANCEMENT")
     }
 
     pub(crate) fn unit_ref(&self, id: &str) -> Option<UnitRef> {
@@ -365,7 +381,7 @@ impl Bundle {
                     name: node.label.clone(),
                     parameter: non_empty(edge.attrs.text("parameter")),
                     model: non_empty(edge.attrs.text("model")),
-                    text: rules_text(node, scope.as_deref()),
+                    text: rules_text(node, scope.as_deref().as_slice()),
                     scope,
                 }
             })
@@ -408,23 +424,24 @@ impl Bundle {
             .map(|(_, node)| RuleText {
                 id: node.id.clone(),
                 name: node.label.clone(),
-                text: rules_text(node, None),
+                text: rules_text(node, &[]),
             })
             .collect())
     }
 
-    /// Like `rules_from`, for edges that arrive at `id`.
-    fn rules_into(&self, id: &str, kind: &str) -> Result<Vec<RuleText>, AskError> {
+    fn stratagems_from(&self, id: &str, kind: &str) -> Result<Vec<Stratagem>, AskError> {
         Ok(self
-            .edges_at(id, kind)
+            .linked_from(id, kind)?
             .into_iter()
-            .filter(|edge| edge.to == id)
-            .filter_map(|edge| self.node(&edge.from))
-            .map(|node| RuleText {
-                id: node.id.clone(),
-                name: node.label.clone(),
-                text: rules_text(node, None),
-            })
+            .map(|(_, node)| stratagem_of(node))
+            .collect())
+    }
+
+    fn enhancements_from(&self, id: &str, kind: &str) -> Result<Vec<Enhancement>, AskError> {
+        Ok(self
+            .linked_from(id, kind)?
+            .into_iter()
+            .map(|(_, node)| enhancement_of(node))
             .collect())
     }
 
@@ -450,7 +467,7 @@ impl Bundle {
 
     fn text_of(&self, id: &str) -> String {
         self.node(id)
-            .map(|node| rules_text(node, node.attrs.text("role")))
+            .map(|node| rules_text(node, node.attrs.text("role").as_slice()))
             .unwrap_or_default()
     }
 
@@ -503,9 +520,12 @@ fn invulnerable_note(raw: Option<&str>) -> Option<String> {
     (!note.is_empty()).then(|| note.to_string())
 }
 
-/// A node's text without its leading name line, and without the ability type
-/// line the export repeats on datasheet abilities.
-fn rules_text(node: &GraphNode, scope: Option<&str>) -> String {
+/// A node's text without its leading name line, and without the header lines the
+/// export repeats after it (an ability's type, a stratagem's cost and phase).
+///
+/// Each header is dropped only when it is the next line, in order, so a header
+/// that is absent from the text costs nothing.
+fn rules_text(node: &GraphNode, headers: &[&str]) -> String {
     let mut lines = node.text.lines().map(str::trim).peekable();
     while lines.peek().is_some_and(|line| line.is_empty()) {
         lines.next();
@@ -516,15 +536,48 @@ fn rules_text(node: &GraphNode, scope: Option<&str>) -> String {
     {
         lines.next();
     }
-    if let Some(scope) = scope {
+    for header in headers {
         if lines
             .peek()
-            .is_some_and(|line| caseless::default_caseless_match_str(line, scope))
+            .is_some_and(|line| caseless::default_caseless_match_str(line, header))
         {
             lines.next();
         }
     }
     lines.collect::<Vec<_>>().join("\n").trim().to_string()
+}
+
+/// A stratagem from its node: typed header fields from the attributes, and the
+/// rules text without those header lines.
+fn stratagem_of(node: &GraphNode) -> Stratagem {
+    let attr = |key: &str| non_empty(node.attrs.text(key));
+    let header = [attr("type"), attr("cp_cost"), attr("turn"), attr("phase"), attr("detachment")];
+    let lines = header.iter().flatten().map(String::as_str).collect::<Vec<_>>();
+    Stratagem {
+        id: node.id.clone(),
+        name: node.label.clone(),
+        stratagem_type: header[0].clone(),
+        cp_cost: header[1].as_deref().and_then(|cost| cost.parse().ok()),
+        turn: header[2].clone(),
+        phase: header[3].clone(),
+        detachment: header[4].clone(),
+        text: rules_text(node, &lines),
+    }
+}
+
+/// An enhancement from its node: its cost and detachment, and the rest as text.
+fn enhancement_of(node: &GraphNode) -> Enhancement {
+    let cost = non_empty(node.attrs.text("cost"));
+    let detachment = non_empty(node.attrs.text("detachment"));
+    let lines = cost.iter().chain(detachment.iter()).map(String::as_str).collect::<Vec<_>>();
+    let text = rules_text(node, &lines);
+    Enhancement {
+        id: node.id.clone(),
+        name: node.label.clone(),
+        cost: cost.as_deref().and_then(|points| points.parse().ok()),
+        detachment,
+        text,
+    }
 }
 
 /// The cost passage is the description, then the points on the last line.
@@ -697,12 +750,12 @@ mod tests {
             "Might is Right\nDatasheet\nWhile this model is leading a unit, add 1 to the Hit roll.",
         );
         assert_eq!(
-            rules_text(&ability, Some("Datasheet")),
+            rules_text(&ability, &["Datasheet"]),
             "While this model is leading a unit, add 1 to the Hit roll."
         );
         let stratagem = node("s", "EXPLOSIVE CLEARANCE", "EXPLOSIVE CLEARANCE\nBattle Tactic\nWHEN: Your Shooting phase.");
         assert_eq!(
-            rules_text(&stratagem, None),
+            rules_text(&stratagem, &[]),
             "Battle Tactic\nWHEN: Your Shooting phase."
         );
     }

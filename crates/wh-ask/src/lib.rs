@@ -59,8 +59,8 @@ mod types;
 pub use bundle::Bundle;
 pub use error::{AskError, Candidate};
 pub use types::{
-    Ability, AbilityHolder, Direction, Keyword, ModelProfile, Neighbor, NodeDetail, NodeRef,
-    Page, PointsCost, Roster, RuleText, SearchHit, Subgraph, UnitCard, UnitComposition, UnitRef,
+    Ability, AbilityHolder, Direction, Enhancement, Keyword, ModelProfile, Neighbor, NodeDetail, NodeRef,
+    Page, PointsCost, Roster, RuleText, SearchHit, Stratagem, Subgraph, UnitCard, UnitComposition, UnitRef,
     WargearOption, Weapon, WeaponStats,
 };
 pub use wh_graph::{Attrs, BundleManifest, EdgeRecord};
