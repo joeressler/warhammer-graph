@@ -7,7 +7,7 @@ Start with the [getting started guide](docs/getting-started.md). Each applicatio
 - [wh-corpus](docs/getting-started/wh-corpus.md) downloads the 10th-edition export and writes corpus v1.
 - [wh-graph](docs/getting-started/wh-graph.md) reads that corpus and writes a CozoDB graph bundle.
 - [wh-ask](docs/getting-started/wh-ask.md) is the Rust library that opens the bundle and answers lookups, searches, and list requests.
-- [wh-mcp](docs/getting-started/wh-mcp.md) is the MCP server that exposes the library to an AI agent over stdio.
+- [wh-mcp](docs/getting-started/wh-mcp.md) is the MCP server that exposes the library to an AI agent over stdio. A [Python example](docs/getting-started/ollama-host.md) connects it to a local Ollama model.
 
 Once the tools are installed, the pipeline is:
 
