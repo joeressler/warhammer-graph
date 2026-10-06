@@ -25,6 +25,7 @@ Each application has its own guide:
 - [wh-graph](getting-started/wh-graph.md) — Rust builder that writes the CozoDB graph bundle.
 - [wh-ask](getting-started/wh-ask.md) — Rust library that opens the bundle and returns typed results.
 - [wh-mcp](getting-started/wh-mcp.md) — MCP server that exposes the library to an AI agent over stdio.
+- [Ollama host](getting-started/ollama-host.md) — a Python example that connects a local Ollama model to `wh-mcp`, with a comparison of five local models.
 
 The contracts those tools follow are the specifications. Read them in this order when you need the frozen field lists, not the install steps:
 

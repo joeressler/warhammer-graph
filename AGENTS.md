@@ -16,6 +16,7 @@ wh-mcp    (Rust bin) <-  wh-ask     15 read-only MCP tools over stdio, for an AI
 | `crates/wh-graph/` | Graph builder: library plus the `wh-graph` binary. Fixtures in `tests/fixtures/{rich,null-faction}`. |
 | `crates/wh-ask/` | Bundle reader library, no binary. `bundle.rs` (open, indexes, id/name resolution), `names.rs`, `search.rs`, `graph.rs`, `lists.rs`, `roster.rs`, `types.rs`, `error.rs`. Unit tests are in `names.rs` and `lists.rs`, integration tests in `tests/api.rs`. |
 | `crates/wh-mcp/` | MCP server binary over `wh-ask`. `main.rs` (arguments, open the bundle, serve on stdio), `server.rs` (the 15 tools), `params.rs` (tool inputs), `reply.rs` (results and errors). `tests/stdio.rs` starts the real binary and speaks JSON-RPC to it. |
+| `examples/ollama-host/` | A Python host that connects a local Ollama model to `wh-mcp`: `host.py` (the loop and CLI), `questions.py` (graded questions), `evaluate.py` (model comparison), and `tests/`. Its dependencies are in its own `requirements.txt`, not `pyproject.toml`. |
 | `docs/specs/` | Frozen contracts: `01-python-cli.md`, `02-rust-graph.md`, `03-rust-library.md`, `04-mcp-server.md`. |
 | `docs/getting-started*` | Install and usage guides. `docs/schemas/` holds the corpus v1 JSON Schema. |
 
@@ -37,6 +38,11 @@ cargo run -p wh-graph -- validate --bundle ./bundle
 RUSTDOCFLAGS="-D warnings" cargo doc -p wh-ask --no-deps            # rustdoc must stay warning-free
 cargo build -p wh-mcp --release                                      # the MCP server (wh-mcp.exe on Windows)
 cargo run -p wh-mcp -- --bundle ./bundle                             # waits for JSON-RPC on stdin; normally a client starts it
+python -m pip install -r examples/ollama-host/requirements.txt       # for the Ollama host
+python examples/ollama-host/host.py --trace --ask "What invulnerable save does Angron have?"
+python -m pytest examples/ollama-host/tests                          # offline; needs cargo build -p wh-mcp -p wh-graph
+OLLAMA_LIVE=1 python -m pytest examples/ollama-host/tests/test_live.py   # opt-in, needs Ollama and ./bundle
+python examples/ollama-host/evaluate.py --models granite4.1:8b --runs 2   # model comparison table
 cargo test --workspace
 ```
 
@@ -94,7 +100,12 @@ Toolchain here is Rust 1.96.1 and Python 3.13. The docs state Rust 1.83 or newer
 - The MCP layer applies agent-sized caps below the library's: `search` default 10 and cap 50, `get_neighbors` 50 and 200, `get_subgraph` depth 2 and 100 edges and 150 nodes, and `units_with_keyword` and `units_with_ability` 200 and 1000 with `total` and `truncated`. `Infantry` alone is 774 units and about 150 KB, which is why. A full roster (Space Marines is 298 units, about 59 KB) is deliberately not cut.
 - `get_unit` defaults to the full datasheet. `enhancements` and `detachment_rules` are opt-in sections, and `get_faction_rules` defaults to abilities only.
 - On Windows, Python's `subprocess` cannot start a relative path with forward slashes, such as `target/release/wh-mcp.exe`. Use an absolute path. The binary is `wh-mcp.exe`, and Git Bash's `/tmp` is not the same directory Windows Python sees.
-- A live-client check (`claude mcp add`, then a real question) has not been run from this repo's tests. The tests speak the protocol by hand.
+- `wh-mcp` has been tested with the official Python `mcp` client (2.3.0) and with local Ollama models through `examples/ollama-host/`. It has not been tried from Claude Code or Claude Desktop.
+- The Python `mcp` 2.x client: `Client(StdioServerParameters(command=..., args=[...]), mode="legacy")` as an async context manager, with `list_tools()`, `call_tool(name, args)`, and `client.instructions`. Result fields are snake_case (`input_schema`, `is_error`). It negotiates protocol `2025-11-25` with `wh-mcp`. Use `mode="legacy"`, the plain `initialize` handshake.
+- Ollama (0.35.1) accepts `wh-mcp`'s tool schemas unchanged, including the `$defs` enums on `sections`. A model must list `tools` in `ollama show`. Installed chat models that do: `granite4.1:8b` (the default), `granite4.1:3b`, `lfm2.5:8b-a1b-q8_0`, `qwen3:0.6b`, and `gpt-oss:20b` (13 GB, pulled 2026-10-06). The machine has an RTX 5000 Ada laptop GPU with 16 GB of VRAM and 64 GB of RAM, so about 13 GB of weights is the practical ceiling. Set `num_ctx` (the host uses 16384); Ollama's default is small.
+- On Windows a piped Python stdout is cp1252 and raises on characters models write, such as the non-breaking hyphen U+2011. The host switches output to UTF-8. Grading in `questions.py` maps typographic dashes, quotes, and spaces to plain forms before comparing.
+- The host's offline tests drive the real loop with a scripted fake model against the real `wh-mcp` and a synthetic bundle built by `wh-graph` from `crates/wh-graph/tests/fixtures/rich`. Do not use `./bundle` in tests that must run anywhere.
+- Model comparison (2026-10-06, 11 questions, 2 runs, temperature 0): `lfm2.5` 16/22, `gpt-oss:20b` 16/22 (the cleanest), `granite4.1:8b` 12/22, `granite4.1:3b` 10/22, `qwen3:0.6b` 4/22. Models pick the right tool far more often than they state the right fact. No model could count (Khorne's 21 units, Feel No Pain's 116, 0 of 10 each): a model ignores the `total` field and counts rows. The host's 12,000-character tool-result cut did not matter for `granite4.1:8b`, but it broke `gpt-oss:20b` (nonsense replies; uncut it said 115, off by one), so try `--max-tool-chars 0` on large contexts. A misspelled name's word-overlap suggestions sent `granite4.1:8b` to the wrong unit, and the granite models skipped an ambiguity. See `docs/getting-started/ollama-host.md`. Ideas not yet done: a `count` on rosters, edit-distance suggestions, and a stronger ambiguity message.
 
 ## Leftovers from the removed LLM app
 

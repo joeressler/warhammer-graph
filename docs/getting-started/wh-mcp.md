@@ -65,6 +65,10 @@ Add an entry to `claude_desktop_config.json` and restart the app:
 }
 ```
 
+## Connect a local model (Ollama)
+
+Ollama runs models but is not an MCP client, so it needs a host in between. The [Ollama host guide](ollama-host.md) has a small Python host that does this, tests for it, and a comparison of five local models on eleven rules questions.
+
 ## The tools
 
 | Tool | Use it for |
