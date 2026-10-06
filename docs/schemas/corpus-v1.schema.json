@@ -353,7 +353,7 @@
               "required": ["datasheet_id", "keyword", "model", "is_faction_keyword"],
               "properties": {
                 "datasheet_id": { "type": "string", "minLength": 1 },
-                "keyword": { "type": "string", "minLength": 1 },
+                "keyword": { "type": "string" },
                 "model": { "type": "string" },
                 "is_faction_keyword": { "enum": ["true", "false"] }
               }
@@ -477,7 +477,7 @@
               ],
               "properties": {
                 "datasheet_id": { "type": "string", "minLength": 1 },
-                "line": { "type": "string", "minLength": 1 },
+                "line": { "type": "string" },
                 "line_in_wargear": { "type": "string" },
                 "dice": { "type": "string" },
                 "name": { "type": "string" },

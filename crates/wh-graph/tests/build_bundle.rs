@@ -119,7 +119,6 @@ fn rich_corpus_builds_the_spec_graph() {
         "nodes.jsonl",
         "edges.jsonl",
         "passages.jsonl",
-        "graph.postcard",
         "manifest.json",
     ] {
         assert_eq!(
@@ -128,6 +127,7 @@ fn rich_corpus_builds_the_spec_graph() {
             "{name} differs between builds"
         );
     }
+    assert!(first.join("graph.db").is_file());
     let overwrite = first.join("nodes.jsonl");
     let before = fs::read(&overwrite).unwrap();
     let third = run(&[
@@ -141,7 +141,7 @@ fn rich_corpus_builds_the_spec_graph() {
     assert_eq!(before, fs::read(overwrite).unwrap());
 
     let manifest = fs::read_to_string(first.join("manifest.json")).unwrap();
-    assert!(manifest.starts_with("{\n  \"format_version\": 1,\n  \"corpus_schema_version\": 1,\n"));
+    assert!(manifest.starts_with("{\n  \"format_version\": 2,\n  \"corpus_schema_version\": 1,\n"));
     assert!(manifest.contains("\"passage_count\":"));
     let node_rows = nodes(&first);
     let edge_rows = edges(&first);
@@ -156,6 +156,17 @@ fn rich_corpus_builds_the_spec_graph() {
         datasheet[0]["source_url"],
         "https://example.invalid/datasheets/example"
     );
+    let models = kind(&node_rows, "Model");
+    assert_eq!(models.len(), 1);
+    assert_eq!(models[0]["attrs"]["Sv"], "3+");
+    assert_eq!(models[0]["attrs"]["inv_sv"], "4*");
+    assert_eq!(
+        models[0]["attrs"]["inv_sv_descr"],
+        "* Against ranged attacks only"
+    );
+    let detachments = kind(&node_rows, "Detachment");
+    assert_eq!(detachments.len(), 1);
+    assert_eq!(detachments[0]["attrs"]["type"], "Example");
     let keywords = kind(&node_rows, "Keyword");
     assert_eq!(keywords.len(), 1);
     assert_eq!(keywords[0]["id"], "10ed:keyword:example");
@@ -247,7 +258,7 @@ fn rich_corpus_builds_the_spec_graph() {
     );
     assert!(!dry.exists());
     let payload: Value = serde_json::from_slice(&dry_run.stdout).unwrap();
-    assert_eq!(payload["format_version"], 1);
+    assert_eq!(payload["format_version"], 2);
     assert_eq!(payload["nodes"], node_rows.len() as u64);
     assert_eq!(payload["passages"], node_rows.len() as u64);
 }

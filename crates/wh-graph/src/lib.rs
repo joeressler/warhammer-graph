@@ -1,4 +1,4 @@
-//! Build a petgraph bundle from a Wahapedia corpus v1 directory.
+//! Build a CozoDB graph bundle from a Wahapedia corpus v1 directory.
 
 mod attrs;
 mod build;
@@ -7,12 +7,14 @@ mod corpus;
 mod error;
 mod html;
 mod model;
+mod store;
 mod textutil;
 
 pub use attrs::Attrs;
 pub use bundle::{build_bundle, validate_bundle, Summary};
 pub use error::GraphError;
-pub use model::{BundleManifest, EdgeRecord, GraphEdge, GraphNode, Passage};
+pub use model::{BundleManifest, EdgeRecord, GraphNode, Passage};
+pub use store::{write_graph_db, EmbedCache, GraphStore, FORMAT_VERSION, GRAPH_DB};
 
 const BUILD_EXAMPLE: &str = "wh-graph build --corpus ./corpus --out ./bundle";
 const VALIDATE_EXAMPLE: &str = "wh-graph validate --bundle ./bundle";

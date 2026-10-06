@@ -13,7 +13,7 @@ Examples:
 #[derive(Parser)]
 #[command(
     name = "wh-graph",
-    about = "Build a petgraph bundle from a Wahapedia corpus v1 directory.",
+    about = "Build a CozoDB graph bundle from a Wahapedia corpus v1 directory.",
     after_help = EXAMPLES
 )]
 struct Cli {
@@ -23,7 +23,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
-    /// Read corpus v1 and write a petgraph bundle.
+    /// Read corpus v1 and write a CozoDB graph bundle.
     #[command(after_help = "\
 Examples:
   wh-graph build --corpus ./corpus --out ./bundle
@@ -42,7 +42,7 @@ Examples:
         #[arg(long, default_value = "text", value_name = "text|json")]
         output: String,
     },
-    /// Check a petgraph bundle against the graph rules.
+    /// Check a CozoDB graph bundle against the graph rules.
     #[command(after_help = "\
 Examples:
   wh-graph validate --bundle ./bundle")]

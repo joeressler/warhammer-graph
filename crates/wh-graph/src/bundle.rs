@@ -1,13 +1,14 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use petgraph::stable_graph::StableGraph;
+use sha2::{Digest, Sha256};
 
-use crate::build::{build_graph, canonical_attrs, GraphBundle};
-use crate::corpus::load_corpus;
+use crate::build::{build_graph, GraphBundle};
+use crate::corpus::{hex_encode, load_corpus};
 use crate::error::GraphError;
-use crate::model::{BundleManifest, EdgeRecord, GraphEdge, GraphNode, Passage};
+use crate::model::{BundleManifest, EdgeRecord, GraphNode, Passage};
+use crate::store::{compare_store, write_graph_db, GraphStore, FORMAT_VERSION, GRAPH_DB};
 
 pub struct Summary {
     pub bundle: String,
@@ -26,16 +27,9 @@ pub fn build_bundle(
 ) -> Result<Summary, GraphError> {
     let corpus = load_corpus(corpus_dir)?;
     let graph = build_graph(&corpus);
-    let postcard = encode_postcard(&graph.nodes, &graph.edges)?;
-    check_graph(
-        &graph.nodes,
-        &graph.edges,
-        &graph.passages,
-        &graph.manifest,
-        &postcard,
-    )?;
+    check_graph(&graph.nodes, &graph.edges, &graph.passages, &graph.manifest)?;
     if !dry_run {
-        write_bundle(out, &graph, &postcard)?;
+        write_bundle(out, &graph)?;
     }
     Ok(summary_from(&graph, out_label))
 }
@@ -48,8 +42,10 @@ pub fn validate_bundle(bundle: &Path, label: &str) -> Result<Summary, GraphError
         &loaded.edges,
         &loaded.passages,
         &loaded.manifest,
-        &loaded.postcard,
     )?;
+    let store = GraphStore::open(&bundle.join(GRAPH_DB))?;
+    compare_store(&store, &loaded.nodes, &loaded.edges, &loaded.passages)?;
+    compare_meta(&store, &loaded.manifest, bundle)?;
     Ok(Summary {
         bundle: label.to_string(),
         format_version: loaded.manifest.format_version,
@@ -65,7 +61,6 @@ struct LoadedBundle {
     nodes: Vec<GraphNode>,
     edges: Vec<EdgeRecord>,
     passages: Vec<Passage>,
-    postcard: Vec<u8>,
 }
 
 fn summary_from(graph: &GraphBundle, label: &str) -> Summary {
@@ -79,7 +74,7 @@ fn summary_from(graph: &GraphBundle, label: &str) -> Summary {
     }
 }
 
-fn write_bundle(out: &Path, graph: &GraphBundle, postcard: &[u8]) -> Result<(), GraphError> {
+fn write_bundle(out: &Path, graph: &GraphBundle) -> Result<(), GraphError> {
     if out.exists() && !out.is_dir() {
         return Err(GraphError::read(out, "bundle path is not a directory"));
     }
@@ -91,7 +86,7 @@ fn write_bundle(out: &Path, graph: &GraphBundle, postcard: &[u8]) -> Result<(), 
     }
     fs::create_dir(&temp).map_err(|err| GraphError::read(&temp, err))?;
     let published = (|| {
-        write_files(&temp, graph, postcard)?;
+        write_files(&temp, graph)?;
         validate_bundle(&temp, &temp.display().to_string())?;
         publish_dir(&temp, out)
     })();
@@ -101,14 +96,22 @@ fn write_bundle(out: &Path, graph: &GraphBundle, postcard: &[u8]) -> Result<(), 
     published
 }
 
-fn write_files(dir: &Path, graph: &GraphBundle, postcard: &[u8]) -> Result<(), GraphError> {
+fn write_files(dir: &Path, graph: &GraphBundle) -> Result<(), GraphError> {
     write_manifest(&dir.join("manifest.json"), &graph.manifest)?;
     write_jsonl(&dir.join("nodes.jsonl"), &graph.nodes)?;
     write_jsonl(&dir.join("edges.jsonl"), &graph.edges)?;
     write_jsonl(&dir.join("passages.jsonl"), &graph.passages)?;
-    fs::write(dir.join("graph.postcard"), postcard)
-        .map_err(|err| GraphError::read(&dir.join("graph.postcard"), err))?;
-    Ok(())
+    let nodes_sha = sha256_file(&dir.join("nodes.jsonl"))?;
+    let passages_sha = sha256_file(&dir.join("passages.jsonl"))?;
+    write_graph_db(
+        &dir.join(GRAPH_DB),
+        &graph.nodes,
+        &graph.edges,
+        &graph.passages,
+        &graph.manifest,
+        &nodes_sha,
+        &passages_sha,
+    )
 }
 
 fn write_manifest(path: &Path, manifest: &BundleManifest) -> Result<(), GraphError> {
@@ -162,14 +165,11 @@ fn read_bundle(bundle: &Path) -> Result<LoadedBundle, GraphError> {
         fs::read(&manifest_path).map_err(|err| GraphError::read(&manifest_path, err))?;
     let manifest: BundleManifest = serde_json::from_slice(&manifest_bytes)
         .map_err(|err| GraphError::read(&manifest_path, format!("malformed JSON: {err}")))?;
-    let postcard_path = bundle.join("graph.postcard");
-    let postcard = fs::read(&postcard_path).map_err(|err| GraphError::read(&postcard_path, err))?;
     Ok(LoadedBundle {
         manifest,
         nodes: read_jsonl(&bundle.join("nodes.jsonl"))?,
         edges: read_jsonl(&bundle.join("edges.jsonl"))?,
         passages: read_jsonl(&bundle.join("passages.jsonl"))?,
-        postcard,
     })
 }
 
@@ -195,11 +195,11 @@ fn read_jsonl<T: serde::de::DeserializeOwned>(path: &Path) -> Result<Vec<T>, Gra
 }
 
 fn check_versions(manifest: &BundleManifest, bundle: &Path) -> Result<(), GraphError> {
-    if manifest.format_version != 1 {
+    if manifest.format_version != FORMAT_VERSION {
         return Err(GraphError::read(
             &bundle.join("manifest.json"),
             format!(
-                "format_version is not 1 (found {})",
+                "format_version is not {FORMAT_VERSION} (found {})",
                 manifest.format_version
             ),
         ));
@@ -221,7 +221,6 @@ fn check_graph(
     edges: &[EdgeRecord],
     passages: &[Passage],
     manifest: &BundleManifest,
-    postcard: &[u8],
 ) -> Result<(), GraphError> {
     let node_ids = nodes
         .iter()
@@ -288,14 +287,6 @@ fn check_graph(
         }
     }
 
-    let decoded: StableGraph<GraphNode, GraphEdge> =
-        postcard::from_bytes(postcard).map_err(|err| {
-            GraphError::Read(format!(
-                "graph.postcard: cannot decode postcard snapshot: {err}"
-            ))
-        })?;
-    compare_postcard(nodes, edges, &decoded)?;
-
     if manifest.node_count != nodes.len()
         || manifest.edge_count != edges.len()
         || manifest.passage_count != passages.len()
@@ -310,99 +301,35 @@ fn check_graph(
     Ok(())
 }
 
-fn encode_postcard(nodes: &[GraphNode], edges: &[EdgeRecord]) -> Result<Vec<u8>, GraphError> {
-    let mut graph = StableGraph::<GraphNode, GraphEdge>::default();
-    let mut index = HashMap::new();
-    for node in nodes {
-        let node_index = graph.add_node(node.clone());
-        index.insert(node.id.clone(), node_index);
-    }
-    for edge in edges {
-        let from = index
-            .get(&edge.from)
-            .copied()
-            .ok_or_else(|| GraphError::invalid(&edge.from, "edge endpoint is not a node id"))?;
-        let to = index
-            .get(&edge.to)
-            .copied()
-            .ok_or_else(|| GraphError::invalid(&edge.to, "edge endpoint is not a node id"))?;
-        graph.add_edge(from, to, edge.to_graph_edge());
-    }
-    postcard::to_allocvec(&graph)
-        .map_err(|err| GraphError::Read(format!("graph.postcard: cannot encode snapshot: {err}")))
-}
-
-fn compare_postcard(
-    nodes: &[GraphNode],
-    edges: &[EdgeRecord],
-    graph: &StableGraph<GraphNode, GraphEdge>,
+fn compare_meta(
+    store: &GraphStore,
+    manifest: &BundleManifest,
+    bundle: &Path,
 ) -> Result<(), GraphError> {
-    let json_nodes = nodes.iter().map(node_payload).collect::<HashSet<_>>();
-    let post_nodes = graph
-        .node_weights()
-        .map(node_payload)
-        .collect::<HashSet<_>>();
-    if json_nodes.len() != nodes.len() || json_nodes != post_nodes {
-        let missing = nodes
-            .iter()
-            .find(|node| !post_nodes.contains(&node_payload(node)));
-        let node_id = missing
-            .map(|node| node.id.as_str())
-            .unwrap_or_else(|| first_node_id(nodes));
-        return Err(GraphError::invalid(
-            node_id,
-            "postcard node payload does not match nodes.jsonl",
+    let found = store
+        .meta("format_version")?
+        .ok_or_else(|| GraphError::read(&bundle.join(GRAPH_DB), "missing format_version meta"))?;
+    if found != FORMAT_VERSION.to_string() {
+        return Err(GraphError::read(
+            &bundle.join(GRAPH_DB),
+            format!("format_version is not {FORMAT_VERSION} (found {found})"),
         ));
     }
-
-    let json_edges = edges.iter().map(edge_payload).collect::<HashSet<_>>();
-    let post_edges = graph
-        .edge_weights()
-        .map(graph_edge_payload)
-        .collect::<HashSet<_>>();
-    if json_edges.len() != edges.len() || json_edges != post_edges {
-        let missing = edges
-            .iter()
-            .find(|edge| !post_edges.contains(&edge_payload(edge)));
-        let node_id = missing
-            .map(|edge| edge.from.as_str())
-            .unwrap_or_else(|| first_node_id(nodes));
-        return Err(GraphError::invalid(
-            node_id,
-            "postcard edge payload does not match edges.jsonl",
+    let fingerprint = store.meta("corpus_fingerprint")?.ok_or_else(|| {
+        GraphError::read(&bundle.join(GRAPH_DB), "missing corpus_fingerprint meta")
+    })?;
+    if fingerprint != manifest.corpus_fingerprint {
+        return Err(GraphError::read(
+            &bundle.join(GRAPH_DB),
+            "rebuild the bundle; corpus_fingerprint does not match manifest.json",
         ));
     }
     Ok(())
 }
 
-fn node_payload(node: &GraphNode) -> (String, String, String, String, Option<String>) {
-    (
-        node.id.clone(),
-        node.kind.clone(),
-        node.label.clone(),
-        node.text.clone(),
-        node.source_url.clone(),
-    )
-}
-
-fn edge_payload(edge: &EdgeRecord) -> (String, String, String, String, String) {
-    (
-        edge.id.clone(),
-        edge.kind.clone(),
-        edge.from.clone(),
-        edge.to.clone(),
-        canonical_attrs(&edge.attrs),
-    )
-}
-
-fn graph_edge_payload(edge: &GraphEdge) -> (String, String, String, String, String) {
-    (
-        edge.id.clone(),
-        edge.kind.clone(),
-        edge.from_id.clone(),
-        edge.to_id.clone(),
-        canonical_attrs(&edge.attrs),
-    )
+fn sha256_file(path: &Path) -> Result<String, GraphError> {
+    let bytes = fs::read(path).map_err(|err| GraphError::read(path, err))?;
+    Ok(hex_encode(&Sha256::digest(bytes)))
 }
 
 fn counts<'a>(kinds: impl Iterator<Item = &'a str>) -> std::collections::BTreeMap<String, usize> {

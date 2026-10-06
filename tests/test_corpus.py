@@ -216,6 +216,44 @@ def test_blank_ability_id_is_null_without_warning(tmp_path) -> None:
     assert manifest["warnings"] == []
 
 
+def test_blank_keyword_is_kept(tmp_path) -> None:
+    blank = fill(
+        "Datasheets_keywords.csv",
+        datasheet_id="EXDS",
+        keyword="",
+        model="",
+        is_faction_keyword="true",
+    )
+    cache = tmp_path / "cache"
+    out = tmp_path / "corpus"
+    write_cache(cache, render(sample_rows(keywords=[blank])))
+    assemble(edition="10ed", cache_dir=cache, out=out, fetch_command=FETCH_EXAMPLE)
+    keywords = [entity for entity in _entities(out) if entity["table"] == "datasheet_keyword"]
+    assert keywords[0]["fields"]["keyword"] == ""
+    assert keywords[0]["fields"]["is_faction_keyword"] == "true"
+    assert keywords[0]["id"] == "10ed:datasheet_keyword:EXDS::"
+
+
+def test_blank_wargear_line_is_kept(tmp_path) -> None:
+    wargear = fill(
+        "Datasheets_wargear.csv",
+        datasheet_id="EXDS",
+        line="",
+        line_in_wargear="1",
+        name="Example weapon",
+        type="Ranged",
+    )
+    cache = tmp_path / "cache"
+    out = tmp_path / "corpus"
+    rows = sample_rows()
+    rows["Datasheets_wargear.csv"] = [wargear]
+    write_cache(cache, render(rows))
+    assemble(edition="10ed", cache_dir=cache, out=out, fetch_command=FETCH_EXAMPLE)
+    found = next(entity for entity in _entities(out) if entity["table"] == "datasheet_wargear")
+    assert found["fields"]["line"] == ""
+    assert found["id"] == "10ed:datasheet_wargear:EXDS::1"
+
+
 def test_duplicate_keyword_occurrence_segment(tmp_path) -> None:
     keyword = fill(
         "Datasheets_keywords.csv",
