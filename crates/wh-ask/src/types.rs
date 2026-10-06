@@ -240,6 +240,42 @@ pub struct RuleText {
     pub text: String,
 }
 
+/// A stratagem, with its cost, timing, and rules separated.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct Stratagem {
+    /// The stratagem node id.
+    pub id: String,
+    /// The stratagem's name.
+    pub name: String,
+    /// The type line, such as `Auric Champions – Epic Deed Stratagem`.
+    pub stratagem_type: Option<String>,
+    /// The cost in command points. `None` when the printed cost is not a whole number.
+    pub cp_cost: Option<u32>,
+    /// When it can be used: `Your turn`, `Opponent's turn`, or `Either player's turn`.
+    pub turn: Option<String>,
+    /// The phase it is used in, such as `Shooting phase` or `Any phase`.
+    pub phase: Option<String>,
+    /// The detachment it belongs to, when the export names one.
+    pub detachment: Option<String>,
+    /// The rules (`WHEN`, `TARGET`, `EFFECT`) without the name and header lines.
+    pub text: String,
+}
+
+/// An enhancement, with its cost and rules separated.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct Enhancement {
+    /// The enhancement node id.
+    pub id: String,
+    /// The enhancement's name.
+    pub name: String,
+    /// The cost in points. `None` when the printed cost is not a whole number.
+    pub cost: Option<u32>,
+    /// The detachment it belongs to, when the export names one.
+    pub detachment: Option<String>,
+    /// The enhancement's flavor legend and rules, without the name, cost, and detachment lines.
+    pub text: String,
+}
+
 /// A unit that has an ability, with that unit's parameter for it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct AbilityHolder {

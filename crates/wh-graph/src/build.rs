@@ -271,7 +271,7 @@ fn entity_node(entity: &Entity, by_id: &HashMap<&str, &Entity>) -> GraphNode {
                 part("detachment", field(entity, "detachment")),
                 part("description", field(entity, "description")),
             ]),
-            Attrs::default(),
+            field_attrs(entity, &["type", "cp_cost", "turn", "phase", "detachment"]),
         ),
         "enhancement" => (
             "Enhancement",
@@ -283,7 +283,7 @@ fn entity_node(entity: &Entity, by_id: &HashMap<&str, &Entity>) -> GraphNode {
                 part("legend", field(entity, "legend")),
                 part("description", field(entity, "description")),
             ]),
-            Attrs::default(),
+            field_attrs(entity, &["cost", "detachment"]),
         ),
         "detachment" => {
             let mut attrs = Attrs::default();
@@ -320,6 +320,15 @@ fn entity_node(entity: &Entity, by_id: &HashMap<&str, &Entity>) -> GraphNode {
         attrs,
         source_url: entity_source_url(entity, by_id),
     }
+}
+
+/// The named fields of `entity` as node attributes, exactly as the export prints them.
+fn field_attrs(entity: &Entity, keys: &[&str]) -> Attrs {
+    let mut attrs = Attrs::default();
+    for key in keys {
+        attrs.insert_text(key, field(entity, key));
+    }
+    attrs
 }
 
 fn datasheet_text(entity: &Entity) -> String {

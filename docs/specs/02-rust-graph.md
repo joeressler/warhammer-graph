@@ -209,6 +209,8 @@ Datasheet `text` does not repeat child models, weapons, or abilities. Those are 
 - Wargear: `line`, `profile_entity_ids`.
 - Keyword: `normalized` (the casefolded key).
 - Detachment: `type`, as printed. It is empty for a standard detachment and `Boarding Actions` for a Boarding Actions variant. A faction can have two detachments of the same name that differ only by this.
+- Stratagem: `type` (a line such as `Auric Champions – Epic Deed Stratagem`), `cp_cost` (`0`, `1`, or `2`), `turn` (`Your turn`, `Opponent's turn`, or `Either player's turn`), `phase` (such as `Shooting phase` or `Any phase`), and `detachment`, each as printed and each a single line. A few stratagems have empty values. These are the same lines that open the node's `text`, so a reader can drop them from the text to get the rules.
+- Enhancement: `cost` (points, as printed) and `detachment`.
 - Edges: only the columns listed in the edge table.
 
 Keep `attrs` small. The full raw strings remain available by going back to the corpus; the bundle does not copy every CSV column onto every node.

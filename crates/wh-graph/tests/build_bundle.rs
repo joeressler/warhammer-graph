@@ -167,6 +167,17 @@ fn rich_corpus_builds_the_spec_graph() {
     let detachments = kind(&node_rows, "Detachment");
     assert_eq!(detachments.len(), 1);
     assert_eq!(detachments[0]["attrs"]["type"], "Example");
+    let stratagems = kind(&node_rows, "Stratagem");
+    assert_eq!(stratagems.len(), 1);
+    assert_eq!(stratagems[0]["attrs"]["type"], "Battle Tactic");
+    assert_eq!(stratagems[0]["attrs"]["cp_cost"], "1");
+    assert_eq!(stratagems[0]["attrs"]["turn"], "");
+    assert_eq!(stratagems[0]["attrs"]["phase"], "");
+    assert_eq!(stratagems[0]["attrs"]["detachment"], "Example Detachment");
+    let enhancements = kind(&node_rows, "Enhancement");
+    assert_eq!(enhancements.len(), 1);
+    assert_eq!(enhancements[0]["attrs"]["cost"], "15");
+    assert_eq!(enhancements[0]["attrs"]["detachment"], "Example Detachment");
     let keywords = kind(&node_rows, "Keyword");
     assert_eq!(keywords.len(), 1);
     assert_eq!(keywords[0]["id"], "10ed:keyword:example");

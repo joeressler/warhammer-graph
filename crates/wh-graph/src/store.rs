@@ -10,16 +10,6 @@ use crate::model::{BundleManifest, EdgeRecord, GraphNode, Passage};
 pub const GRAPH_DB: &str = "graph.db";
 pub const FORMAT_VERSION: u32 = 2;
 
-pub struct EmbedCache {
-    pub model_sha_hex: String,
-    pub model_len: u64,
-    pub model_mtime: u64,
-    pub dimension: u32,
-    pub passages_sha_hex: String,
-    pub nodes_sha_hex: String,
-    pub fingerprint: String,
-}
-
 pub struct GraphStore {
     db: DbInstance,
     nodes: HashMap<String, GraphNode>,
@@ -187,145 +177,6 @@ impl GraphStore {
             Some(row) => Ok(Some(required_str(row, 0)?)),
             None => Ok(None),
         }
-    }
-
-    pub fn put_meta(&self, key: &str, value: &str) -> Result<(), GraphError> {
-        let mut tables = BTreeMap::new();
-        tables.insert(
-            "meta".to_string(),
-            NamedRows::new(
-                vec!["key".to_string(), "value".to_string()],
-                vec![vec![DataValue::from(key), DataValue::from(value)]],
-            ),
-        );
-        self.db
-            .import_relations(tables)
-            .map_err(|err| GraphError::Read(format!("graph.db: {err}")))
-    }
-
-    pub fn embed_cache(&self) -> Result<Option<EmbedCache>, GraphError> {
-        let sha = self.meta("embed_model_sha")?;
-        let Some(model_sha_hex) = sha else {
-            return Ok(None);
-        };
-        Ok(Some(EmbedCache {
-            model_sha_hex,
-            model_len: parse_u64(self.meta("embed_model_len")?.as_deref())?,
-            model_mtime: parse_u64(self.meta("embed_model_mtime")?.as_deref())?,
-            dimension: parse_u64(self.meta("embed_dimension")?.as_deref())? as u32,
-            passages_sha_hex: self.meta("embed_passages_sha")?.unwrap_or_default(),
-            nodes_sha_hex: self.meta("embed_nodes_sha")?.unwrap_or_default(),
-            fingerprint: self.meta("embed_fingerprint")?.unwrap_or_default(),
-        }))
-    }
-
-    pub fn set_embed_cache(&self, cache: &EmbedCache) -> Result<(), GraphError> {
-        self.put_meta("embed_model_sha", &cache.model_sha_hex)?;
-        self.put_meta("embed_model_len", &cache.model_len.to_string())?;
-        self.put_meta("embed_model_mtime", &cache.model_mtime.to_string())?;
-        self.put_meta("embed_dimension", &cache.dimension.to_string())?;
-        self.put_meta("embed_passages_sha", &cache.passages_sha_hex)?;
-        self.put_meta("embed_nodes_sha", &cache.nodes_sha_hex)?;
-        self.put_meta("embed_fingerprint", &cache.fingerprint)
-    }
-
-    pub fn embed_ready(&self) -> Result<bool, GraphError> {
-        Ok(self.meta("embed_ready")?.as_deref() == Some("true"))
-    }
-
-    pub fn ensure_passage_embed(&self, dimension: u32, replace: bool) -> Result<(), GraphError> {
-        if replace {
-            let _ = mutate(&self.db, "::hnsw drop passage_embed:passage_hnsw");
-            let _ = mutate(&self.db, "::remove passage_embed");
-            self.put_meta("embed_ready", "false")?;
-        }
-        if query(
-            &self.db,
-            "?[seq] := *passage_embed{seq}\n:limit 1",
-            BTreeMap::new(),
-        )
-        .is_err()
-        {
-            mutate(
-                &self.db,
-                &format!(
-                    ":create passage_embed {{seq: Int => node_id: String, vec: <F32; {dimension}>}}"
-                ),
-            )?;
-        }
-        Ok(())
-    }
-
-    pub fn load_passage_embeds(&self) -> Result<Vec<(i64, String)>, GraphError> {
-        let rows = match query(
-            &self.db,
-            "?[seq, node_id] := *passage_embed{seq, node_id}\n:order seq",
-            BTreeMap::new(),
-        ) {
-            Ok(rows) => rows,
-            Err(_) => return Ok(Vec::new()),
-        };
-        rows.rows
-            .iter()
-            .map(|row| {
-                Ok((
-                    required_int(row, 0)?,
-                    required_str(row, 1)?,
-                ))
-            })
-            .collect()
-    }
-
-    pub fn put_passage_embeds(&self, records: &[(i64, String, Vec<f32>)]) -> Result<(), GraphError> {
-        if records.is_empty() {
-            return Ok(());
-        }
-        let mut tables = BTreeMap::new();
-        tables.insert(
-            "passage_embed".to_string(),
-            NamedRows::new(
-                vec!["seq".to_string(), "node_id".to_string(), "vec".to_string()],
-                records
-                    .iter()
-                    .map(|(seq, node_id, vector)| {
-                        vec![
-                            DataValue::from(*seq),
-                            DataValue::from(node_id.as_str()),
-                            vector_value(vector),
-                        ]
-                    })
-                    .collect(),
-            ),
-        );
-        self.db
-            .import_relations(tables)
-            .map_err(|err| GraphError::Read(format!("graph.db: {err}")))
-    }
-
-    pub fn finish_hnsw(&self, dimension: u32) -> Result<(), GraphError> {
-        let _ = mutate(&self.db, "::hnsw drop passage_embed:passage_hnsw");
-        mutate(
-            &self.db,
-            &format!(
-                "::hnsw create passage_embed:passage_hnsw {{\n dim: {dimension},\n m: 16,\n dtype: F32,\n fields: [vec],\n distance: Cosine,\n ef_construction: 64\n}}"
-            ),
-        )?;
-        self.put_meta("embed_ready", "true")
-    }
-
-    pub fn search_hnsw(&self, query_vec: &[f32], top_k: usize) -> Result<Vec<(i64, String)>, GraphError> {
-        let q = vec_lit(query_vec);
-        let rows = query(
-            &self.db,
-            &format!(
-                "?[dist, seq, node_id] := ~passage_embed:passage_hnsw{{seq, node_id |\n query: {q},\n k: {top_k},\n ef: 64,\n bind_distance: dist\n}}\n:order dist, seq"
-            ),
-            BTreeMap::new(),
-        )?;
-        rows.rows
-            .iter()
-            .map(|row| Ok((required_int(row, 1)?, required_str(row, 2)?)))
-            .collect()
     }
 
     pub fn dump_nodes(&self) -> Result<Vec<GraphNode>, GraphError> {
@@ -638,43 +489,6 @@ fn edge_payload(edge: &EdgeRecord) -> (String, String, String, String, String) {
         edge.to.clone(),
         canonical_attrs(&edge.attrs),
     )
-}
-
-fn mutate(db: &DbInstance, script: &str) -> Result<(), GraphError> {
-    db.run_script(script, BTreeMap::new(), ScriptMutability::Mutable)
-        .map(|_| ())
-        .map_err(|err| GraphError::Read(format!("graph.db: {err}")))
-}
-
-fn parse_u64(value: Option<&str>) -> Result<u64, GraphError> {
-    value
-        .unwrap_or("0")
-        .parse()
-        .map_err(|_| GraphError::Read("graph.db: malformed embed cache number".to_string()))
-}
-
-fn vector_value(values: &[f32]) -> DataValue {
-    DataValue::List(
-        values
-            .iter()
-            .map(|value| DataValue::from(*value as f64))
-            .collect(),
-    )
-}
-
-fn vec_lit(values: &[f32]) -> String {
-    let inner = values
-        .iter()
-        .map(|value| format!("{value}"))
-        .collect::<Vec<_>>()
-        .join(", ");
-    format!("vec([{inner}])")
-}
-
-fn required_int(row: &[DataValue], index: usize) -> Result<i64, GraphError> {
-    row.get(index)
-        .and_then(DataValue::get_int)
-        .ok_or_else(|| GraphError::Read("graph.db: expected an integer column".to_string()))
 }
 
 fn cozo_str(value: &str) -> String {

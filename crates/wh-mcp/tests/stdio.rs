@@ -198,15 +198,30 @@ fn world() -> Fixture {
     f.node("10ed:detachment:KULT", "Detachment", "Kult of Speed", "Kult of Speed", &[]);
     f.edge("FACTION_HAS_DETACHMENT", "10ed:faction:ORK", "10ed:detachment:WAAAGH", &[]);
     f.edge("FACTION_HAS_DETACHMENT", "10ed:faction:ORK", "10ed:detachment:KULT", &[]);
-    f.node("10ed:stratagem:S1", "Stratagem", "ARMOURED DUELLISTS", "ARMOURED DUELLISTS\nBattle Tactic\n1\nWHEN: Fight phase.", &[]);
+    f.node(
+        "10ed:stratagem:S1",
+        "Stratagem",
+        "ARMOURED DUELLISTS",
+        "ARMOURED DUELLISTS\nBattle Tactic\n1\nYour turn\nFight phase\nWar Horde\nWHEN: Fight phase.",
+        &[("type", "Battle Tactic"), ("cp_cost", "1"), ("turn", "Your turn"), ("phase", "Fight phase"), ("detachment", "War Horde")],
+    );
     f.edge("DETACHMENT_HAS_STRATAGEM", "10ed:detachment:WAAAGH", "10ed:stratagem:S1", &[]);
     f.edge("FACTION_HAS_STRATAGEM", "10ed:faction:ORK", "10ed:stratagem:S1", &[]);
     f.node("10ed:detachment_ability:R1", "DetachmentAbility", "Get Stuck In", "Get Stuck In\nWar Horde\nMelee weapons gain Sustained Hits 1.", &[]);
     f.edge("DETACHMENT_HAS_ABILITY", "10ed:detachment:WAAAGH", "10ed:detachment_ability:R1", &[]);
     f.edge("DATASHEET_HAS_DETACHMENT_ABILITY", "10ed:datasheet:WB", "10ed:detachment_ability:R1", &[]);
     f.edge("DATASHEET_HAS_DETACHMENT_ABILITY", "10ed:datasheet:BOY", "10ed:detachment_ability:R1", &[]);
-    for (id, detachment) in [("10ed:enhancement:E1", "10ed:detachment:WAAAGH"), ("10ed:enhancement:E2", "10ed:detachment:KULT")] {
-        f.node(id, "Enhancement", "Brutal Fist", "Brutal Fist\n15\nBearer hits harder.", &[]);
+    for (id, detachment, label) in [
+        ("10ed:enhancement:E1", "10ed:detachment:WAAAGH", "War Horde"),
+        ("10ed:enhancement:E2", "10ed:detachment:KULT", "Kult of Speed"),
+    ] {
+        f.node(
+            id,
+            "Enhancement",
+            "Brutal Fist",
+            &format!("Brutal Fist\n15\n{label}\nBearer hits harder."),
+            &[("cost", "15"), ("detachment", label)],
+        );
         f.edge("DETACHMENT_HAS_ENHANCEMENT", detachment, id, &[]);
         f.edge("FACTION_HAS_ENHANCEMENT", "10ed:faction:ORK", id, &[]);
     }
@@ -359,7 +374,14 @@ fn the_handshake_names_the_server_and_tells_the_agent_how_to_use_it() {
     assert_eq!(init["serverInfo"]["name"], "wh-mcp");
     assert!(init["capabilities"]["tools"].is_object());
     let instructions = init["instructions"].as_str().unwrap();
-    for needle in ["get_unit", "get_roster", "get_detachment", "call again with one id", "Wahapedia"] {
+    for needle in [
+        "get_unit",
+        "get_roster",
+        "get_detachment",
+        "Do not pick one silently",
+        "do not count the items yourself",
+        "Wahapedia",
+    ] {
         assert!(instructions.contains(needle), "instructions should say: {needle}");
     }
 }
@@ -496,20 +518,80 @@ fn rosters_and_factions_and_detachments() {
 fn detachment_and_faction_rules_default_to_the_cheap_parts() {
     let mut session = Session::start();
     let all = session.call("get_detachment", json!({ "detachment": "War Horde" }));
-    assert_eq!(keys(&all.json), strings(&["enhancements", "rules", "stratagems"]));
+    assert_eq!(keys(&all.json), strings(&["counts", "enhancements", "rules", "stratagems", "summary"]));
+    assert_eq!(all.json["summary"], "This detachment has 1 stratagem, 1 rule and 1 enhancement.");
+    assert_eq!(all.json["counts"], json!(["1 stratagem", "1 rule", "1 enhancement"]));
     assert_eq!(names(&all.json["stratagems"]), ["ARMOURED DUELLISTS"]);
     assert_eq!(all.json["rules"][0]["text"], "War Horde\nMelee weapons gain Sustained Hits 1.");
 
     let one = session.call("get_detachment", json!({ "detachment": "War Horde", "sections": ["rules"] }));
-    assert_eq!(keys(&one.json), strings(&["rules"]));
+    assert_eq!(keys(&one.json), strings(&["counts", "rules", "summary"]));
+    assert_eq!(one.json["summary"], "This detachment has 1 rule.");
 
     let faction = session.call("get_faction_rules", json!({ "faction": "Orks" }));
-    assert_eq!(keys(&faction.json), strings(&["abilities"]));
+    assert_eq!(keys(&faction.json), strings(&["abilities", "counts", "summary"]));
+    assert_eq!(faction.json["summary"], "This faction has 1 ability.");
     assert_eq!(faction.json["abilities"][0]["name"], "Waaagh!");
 
     let long = session.call("get_faction_rules", json!({ "faction": "Orks", "sections": ["stratagems", "enhancements"] }));
-    assert_eq!(keys(&long.json), strings(&["enhancements", "stratagems"]));
+    assert_eq!(keys(&long.json), strings(&["counts", "enhancements", "stratagems", "summary"]));
+    assert_eq!(long.json["summary"], "This faction has 1 stratagem and 2 enhancements.");
     assert_eq!(long.json["enhancements"].as_array().unwrap().len(), 2);
+}
+
+#[test]
+fn counts_come_first_so_a_model_reads_them_instead_of_counting() {
+    let mut session = Session::start();
+    let roster = session.call("get_roster", json!({ "subject": "Ultramarines" }));
+    assert_eq!(roster.json["count"], 2);
+    assert_eq!(roster.json["summary"], "Ultramarines can field 2 units.");
+    let order = roster.json.as_object().unwrap().keys().cloned().collect::<Vec<_>>();
+    assert_eq!(order, strings(&["summary", "count", "subject", "units"]), "the summary leads");
+
+    let detachment = session.call("get_detachment", json!({ "detachment": "War Horde" }));
+    assert_eq!(detachment.json.as_object().unwrap().keys().next().unwrap(), "summary");
+
+    // One unit has a keyword; many units have another.
+    let one = session.call("units_with_keyword", json!({ "keyword": "Infantry" }));
+    assert_eq!(one.json["summary"], "1 unit has the keyword Infantry.");
+    let many = session.call("units_with_keyword", json!({ "keyword": "Crowd" }));
+    assert_eq!(
+        many.json["summary"],
+        "350 units have the keyword Crowd. Showing the first 200; pass a larger limit for more."
+    );
+    assert_eq!(many.json.as_object().unwrap().keys().next().unwrap(), "summary");
+
+    let ability = session.call("units_with_ability", json!({ "ability": "Feel No Pain" }));
+    assert_eq!(ability.json["summary"], "2 units have the ability Feel No Pain.");
+}
+
+#[test]
+fn an_ambiguity_error_tells_the_agent_not_to_pick_silently() {
+    let mut session = Session::start();
+    let shared = session.call("get_unit", json!({ "unit": "Dreadnought" }));
+    assert!(shared.is_error);
+    let instruction = shared.json["instruction"].as_str().unwrap();
+    assert!(instruction.contains("Do not pick one silently"), "{instruction}");
+    assert!(instruction.contains("call again once with each id"), "{instruction}");
+    // A plain not-found error carries suggestions and no such instruction.
+    let typo = session.call("get_unit", json!({ "unit": "Warbos" }));
+    assert!(typo.json.get("instruction").is_none());
+}
+
+#[test]
+fn a_stratagems_cost_and_timing_are_typed_fields_in_the_reply() {
+    let mut session = Session::start();
+    let reply = session.call("get_detachment", json!({ "detachment": "War Horde", "sections": ["stratagems", "enhancements"] }));
+    let stratagem = &reply.json["stratagems"][0];
+    assert_eq!(stratagem["cp_cost"], 1);
+    assert_eq!(stratagem["turn"], "Your turn");
+    assert_eq!(stratagem["phase"], "Fight phase");
+    assert_eq!(stratagem["stratagem_type"], "Battle Tactic");
+    assert_eq!(stratagem["detachment"], "War Horde");
+    assert_eq!(stratagem["text"], "WHEN: Fight phase.", "the header lines are not repeated in the rules");
+    let enhancement = &reply.json["enhancements"][0];
+    assert_eq!(enhancement["cost"], 15);
+    assert_eq!(enhancement["text"], "Bearer hits harder.");
 }
 
 #[test]

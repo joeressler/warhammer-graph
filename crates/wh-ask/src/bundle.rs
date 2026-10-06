@@ -8,7 +8,7 @@ use wh_graph::{
 };
 
 use crate::error::{AskError, Candidate};
-use crate::names::{fold, name_key};
+use crate::names::{edit_distance, fold, name_key};
 use crate::types::NodeRef;
 
 /// Case-folded passage text, computed once so search does not fold 26k passages per call.
@@ -314,13 +314,45 @@ impl Bundle {
     }
 
     fn suggest(&self, kind: &str, input: &str) -> Vec<String> {
-        let mut names = Vec::new();
+        let mut names = self
+            .similar(kind, input, 5)
+            .into_iter()
+            .map(|(name, _)| name)
+            .collect::<Vec<_>>();
         for hit in self.search(input, &[kind], 5) {
+            if names.len() >= 5 {
+                break;
+            }
             if !names.contains(&hit.node.name) {
                 names.push(hit.node.name);
             }
         }
         names
+    }
+
+    /// Names of `kind` that are close to `input` in spelling, nearest first, each
+    /// with every id that carries it. Close means within a quarter of the name's
+    /// length in edits, and never more than three, so a typo finds its name and an
+    /// unrelated word finds nothing.
+    pub(crate) fn similar(&self, kind: &str, input: &str, limit: usize) -> Vec<(String, Vec<String>)> {
+        let key = name_key(input);
+        let allowed = (key.chars().count() / 4).clamp(1, 3);
+        let mut close = self
+            .labels
+            .iter()
+            .filter(|((node_kind, _), _)| node_kind == kind)
+            .filter_map(|((_, candidate), ids)| {
+                let distance = edit_distance(&key, candidate);
+                let name = self.node(ids.first()?)?.label.clone();
+                (distance <= allowed).then(|| (distance, name, ids.clone()))
+            })
+            .collect::<Vec<_>>();
+        close.sort_by(|left, right| left.0.cmp(&right.0).then_with(|| left.1.cmp(&right.1)));
+        close
+            .into_iter()
+            .take(limit)
+            .map(|(_, name, ids)| (name, ids))
+            .collect()
     }
 
     /// What tells same-named nodes apart: a unit's faction, a detachment's

@@ -89,9 +89,11 @@ Names must be exact, though case, `the`, and apostrophe style do not matter. `ge
 
 A failed call is a normal reply flagged as an error, so the agent can read it and retry:
 
-- A name that matches nothing lists close names. `get_unit` for "Taxtical Squad" suggests `Bike Squad`, `Scout Squad`, and others.
-- A name several things share lists their ids and what tells them apart. "Daemonic Incursion" is two detachments in one faction, offered as `Chaos Daemons` and `Chaos Daemons (Boarding Actions)`. The agent calls again with one id.
+- A name that matches nothing lists close names, nearest in spelling first. `get_unit` for "Taxtical Squad" suggests `Tactical Squad` first.
+- A name several things share lists their ids and what tells them apart. "Daemonic Incursion" is two detachments in one faction, offered as `Chaos Daemons` and `Chaos Daemons (Boarding Actions)`. The reply also carries an `instruction` telling the agent not to pick one silently: say that more than one exists, then ask which is meant or call again with each id.
 - A bad argument, such as an unknown section, says which values are valid.
+
+Replies that list things start with a `summary` that states the count (`Khorne can field 21 units.`), because models are poor at counting long lists. Stratagems carry their command point cost, turn, and phase as separate fields.
 
 A list that was cut says so. `units_with_keyword` for `Infantry` has 774 units, returns 200 by default, and reports `total: 774` and `truncated: true`. Pass `limit` for more, up to 1000.
 

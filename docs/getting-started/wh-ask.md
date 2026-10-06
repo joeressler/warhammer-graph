@@ -44,7 +44,7 @@ A `Bundle` is read-only, and it is `Send` and `Sync`, so wrap it in an `Arc` to 
 
 Every `unit`, `faction`, `detachment`, `keyword`, or `ability` argument takes a node id (`10ed:datasheet:000002621`) or an exact name (`Angron`). Case, `a`/`an`/`the`, and curly versus straight apostrophes do not matter. A shorter or misspelled name is not a match.
 
-- A name nothing matches is `AskError::NotFound`, which suggests close names.
+- A name nothing matches is `AskError::NotFound`, which suggests close names, nearest in spelling first (`Taxtical Squad` suggests `Tactical Squad`).
 - A name several nodes share is `AskError::Ambiguous`, which lists each candidate's id and faction. Call again with the id.
 
 ```rust
@@ -93,7 +93,7 @@ let detachments = bundle.detachments("Adeptus Custodes")?;
 | `unit_detachment_rules(unit)` | The detachment rules that name this unit. |
 | `enhancement_units(enhancement)` | The units an enhancement can be given to. |
 | `detachment_rule_units(rule)` | The units a detachment rule names, such as who gets Idols of Khorne. |
-| `detachment_stratagems`, `detachment_rules`, `detachment_enhancements` | A detachment's rules text. |
+| `detachment_stratagems`, `detachment_rules`, `detachment_enhancements` | A detachment's rules text. Stratagems and enhancements come as typed `Stratagem` and `Enhancement` rows. |
 | `faction_abilities`, `faction_stratagems`, `faction_enhancements` | A faction's army-wide abilities, and every stratagem and enhancement it has. |
 
 ```rust
@@ -116,7 +116,7 @@ Things worth knowing:
 - **Rosters** match a name when the whole faction or chapter label is inside it, so `Ultramarines`, `the Ultramarines`, and `Ultramarines units` all work.
 - **Transport and the damaged profile** are in the datasheet's text, not in separate fields. Read them from `UnitCard.text` or `unit_text`.
 - **Same-named detachments.** A faction can have two detachments of one name, such as the standard `Daemonic Incursion` and its Boarding Actions variant. The ambiguity error tells them apart (`Chaos Daemons` versus `Chaos Daemons (Boarding Actions)`), and you call again with the id it offers.
-- **Stratagem and enhancement text** includes their cost, turn, and phase lines ahead of the rules. The library does not split those into fields.
+- **Stratagem and enhancement fields** are separate: a `Stratagem` has `stratagem_type`, `cp_cost`, `turn`, `phase`, and `detachment`, and an `Enhancement` has `cost` and `detachment`, with `text` holding only the rules. A bundle built before these attributes were added lacks them; rebuild it.
 
 ## Walk the graph
 

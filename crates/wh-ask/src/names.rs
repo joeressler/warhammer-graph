@@ -40,6 +40,37 @@ pub(crate) fn name_key(value: &str) -> String {
     tokens(&fold(value)).join(" ")
 }
 
+/// How many single-character edits turn `a` into `b`: an insertion, a deletion,
+/// a substitution, or a swap of two neighboring characters. `taxtical` is one
+/// edit from `tactical`, and `teh` is one from `the`.
+pub(crate) fn edit_distance(a: &str, b: &str) -> usize {
+    let a = a.chars().collect::<Vec<_>>();
+    let b = b.chars().collect::<Vec<_>>();
+    let (n, m) = (a.len(), b.len());
+    if n == 0 || m == 0 {
+        return n.max(m);
+    }
+    let mut older = vec![0usize; m + 1];
+    let mut previous = (0..=m).collect::<Vec<_>>();
+    let mut current = vec![0usize; m + 1];
+    for i in 1..=n {
+        current[0] = i;
+        for j in 1..=m {
+            let substitution = usize::from(a[i - 1] != b[j - 1]);
+            let mut best = (previous[j] + 1)
+                .min(current[j - 1] + 1)
+                .min(previous[j - 1] + substitution);
+            if i > 1 && j > 1 && a[i - 1] == b[j - 2] && a[i - 2] == b[j - 1] {
+                best = best.min(older[j - 2] + 1);
+            }
+            current[j] = best;
+        }
+        std::mem::swap(&mut older, &mut previous);
+        std::mem::swap(&mut previous, &mut current);
+    }
+    previous[m]
+}
+
 /// Whether the whole label occurs inside the (already folded) haystack.
 pub(crate) fn label_in(haystack: &str, label: &str) -> bool {
     let needle = strip_articles(label);
@@ -48,7 +79,7 @@ pub(crate) fn label_in(haystack: &str, label: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{fold, label_in, name_key, strip_articles};
+    use super::{edit_distance, fold, label_in, name_key, strip_articles};
 
     #[test]
     fn articles_in_a_name_are_optional() {
@@ -61,6 +92,19 @@ mod tests {
         let tank = strip_articles(&fold("What units can Stormlord lead"));
         assert!(!label_in(&tank, "imotekh the stormlord"));
         assert!(label_in(&tank, "stormlord"));
+    }
+
+    #[test]
+    fn edit_distance_counts_insertions_deletions_substitutions_and_swaps() {
+        assert_eq!(edit_distance("tactical squad", "tactical squad"), 0);
+        assert_eq!(edit_distance("taxtical squad", "tactical squad"), 1, "one substitution");
+        assert_eq!(edit_distance("tacical squad", "tactical squad"), 1, "one missing letter");
+        assert_eq!(edit_distance("tacttical squad", "tactical squad"), 1, "one extra letter");
+        assert_eq!(edit_distance("teh", "the"), 1, "a swap is one edit, not two");
+        assert_eq!(edit_distance("kitten", "sitting"), 3);
+        assert_eq!(edit_distance("", "abc"), 3);
+        assert_eq!(edit_distance("abc", ""), 3);
+        assert_eq!(edit_distance("bike squad", "tactical squad"), 7, "bike to tactical, the squad matches");
     }
 
     #[test]
