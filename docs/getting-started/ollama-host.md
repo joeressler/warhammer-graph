@@ -91,33 +91,35 @@ It needs the real bundle. Local models are not deterministic, so run each questi
 
 Run on 2026-10-06 against the real 26,406-node bundle, with Ollama 0.35.1, `mcp` 2.3.0, and `wh-mcp` 0.1.0. Each question ran twice per model at temperature 0, with the context window at 16,384 tokens and the host's defaults. Cells are passes out of runs.
 
-| Question | granite4.1:8b | granite4.1:3b | lfm2.5:8b-a1b | qwen3:0.6b |
-|---|---|---|---|---|
-| `angron_invuln` | 2/2 | 2/2 | 2/2 | 0/2 |
-| `angron_weapons` | 2/2 | 0/2 | 2/2 | 0/2 |
-| `warboss_points` | 2/2 | 2/2 | 2/2 | 0/2 |
-| `dropship_transport` | 0/2 | 1/2 | 2/2 | 2/2 |
-| `imotekh_leads` | 2/2 | 0/2 | 2/2 | 0/2 |
-| `khorne_units` | 0/2 | 0/2 | 0/2 | 0/2 |
-| `idols_of_khorne` | 2/2 | 2/2 | 2/2 | 0/2 |
-| `fnp_count` | 0/2 | 0/2 | 0/2 | 0/2 |
-| `auric_stratagems` | 2/2 | 1/2 | 0/2 | 1/2 |
-| `typo_recovery` | 0/2 | 2/2 | 2/2 | 0/2 |
-| `daemonic_incursion` | 0/2 | 0/2 | 2/2 | 1/2 |
-| **Total** | **12/22** | **10/22** | **16/22** | **4/22** |
-| Median time per question | 8 s | 3 s | 7 s | 3 s |
+| Question | granite4.1:8b | granite4.1:3b | lfm2.5:8b-a1b | qwen3:0.6b | gpt-oss:20b |
+|---|---|---|---|---|---|
+| `angron_invuln` | 2/2 | 2/2 | 2/2 | 0/2 | 2/2 |
+| `angron_weapons` | 2/2 | 0/2 | 2/2 | 0/2 | 2/2 |
+| `warboss_points` | 2/2 | 2/2 | 2/2 | 0/2 | 2/2 |
+| `dropship_transport` | 0/2 | 1/2 | 2/2 | 2/2 | 2/2 |
+| `imotekh_leads` | 2/2 | 0/2 | 2/2 | 0/2 | 2/2 |
+| `khorne_units` | 0/2 | 0/2 | 0/2 | 0/2 | 0/2 |
+| `idols_of_khorne` | 2/2 | 2/2 | 2/2 | 0/2 | 2/2 |
+| `fnp_count` | 0/2 | 0/2 | 0/2 | 0/2 | 0/2 |
+| `auric_stratagems` | 2/2 | 1/2 | 0/2 | 1/2 | 2/2 |
+| `typo_recovery` | 0/2 | 2/2 | 2/2 | 0/2 | 2/2 |
+| `daemonic_incursion` | 0/2 | 0/2 | 2/2 | 1/2 | 0/2 |
+| **Total** | **12/22** | **10/22** | **16/22** | **4/22** | **16/22** |
+| Median time per question | 8 s | 3 s | 7 s | 3 s | 8 s |
 
-Read this table with care. At temperature 0 the two runs of a cell mostly repeat each other, so each cell is closer to one sample than two, and four models and eleven questions are a small test. It shows what is hard, not a ranking to rely on.
+Read this table with care. At temperature 0 the two runs of a cell mostly repeat each other, so each cell is closer to one sample than two, and five models and eleven questions are a small test. It shows what is hard, not a ranking to rely on.
 
 What the table shows:
 
-- **Models find the right tool far more often than they get the right fact.** The model called an expected tool in 22 of 22 runs for `granite4.1:8b`, 20 of 22 for `granite4.1:3b` and `lfm2.5`, and 16 of 22 for `qwen3:0.6b`. Most failures are in reading the reply, not in choosing the call.
+- **Models find the right tool far more often than they get the right fact.** The model called an expected tool in 22 of 22 runs for `granite4.1:8b` and `gpt-oss:20b`, 20 of 22 for `granite4.1:3b` and `lfm2.5`, and 16 of 22 for `qwen3:0.6b`. Most failures are in reading the reply, not in choosing the call.
 - **Single lookups of a typed fact work well.** Angron's invulnerable save and weapon profiles, a Warboss's points, who gets Idols of Khorne, and Imotekh's leaders pass for both 8B models.
-- **Counting fails everywhere.** No model passed `khorne_units` (the true count is 21) or `fnp_count` (116). `granite4.1:8b` said 19 units for Khorne and 48 for Feel No Pain. The reply to `fnp_count` has `total: 116` at the top, and the model ignored it and counted rows. I checked whether the host's 12,000-character cut caused that. With no cut at all the model still answered 57, so the cut is not to blame.
+- **Counting fails everywhere.** No model passed `khorne_units` (the true count is 21) or `fnp_count` (116), in all 10 runs of each. `granite4.1:8b` said 19 units for Khorne and 48 for Feel No Pain. The reply to `fnp_count` has `total: 116` at the top, and the models ignored it and counted rows.
+- **The host's 12,000-character cut matters for some models and not others.** For `granite4.1:8b`, turning the cut off changed nothing: it still said 57. For `gpt-oss:20b` the cut made things worse. With it, the model answered "I'm ready to help!" and "I can't answer that" after seeing a half-cut reply. With no cut it answered 115, off by one from 116. If your model has a large context, try `--max-tool-chars 0`.
 - **A wrong unit can look confident.** For the misspelled "Taxtical Squad", `granite4.1:8b` followed the server's suggestions to "Bike Squad" and described that unit, instead of the Tactical Squad the user meant. The smaller `granite4.1:3b` and `lfm2.5` recovered.
 - **Ambiguity is easy to skip.** For "Daemonic Incursion", which is two detachments in one faction, both granite models picked one id and answered without mentioning the other. Only `lfm2.5` reported both every time, and `qwen3:0.6b` once.
 - **Free text is read less reliably than fields.** The Orion Assault Dropship's transport capacity is in the datasheet text. `granite4.1:8b` said it carries "1 model", and `granite4.1:3b` said 30 once.
-- **`lfm2.5:8b-a1b-q8_0` scored best here (16/22)** but was the least tidy. It hit the step limit in 4 runs, looping on `search`, sometimes emitted a malformed tool call as plain text, and wrote its reasoning into the answer in every run. The host strips `<think>` text, and re-grading with it stripped changed none of the verdicts.
+- **`gpt-oss:20b` (13 GB, the largest model tried) tied for best at 16/22 and was the cleanest.** It used an expected tool in every run, wrote no reasoning into its answers, and passed the free-text transport capacity, the typo recovery, and the stratagem count that tripped other models. Its failures were the two counting questions, where on `khorne_units` it searched for army rules instead of reading the roster and ran out of steps with no answer, and the ambiguous detachment, where it answered for one variant without mentioning the other. A bigger model fixed the reading problems but not the counting or the ambiguity.
+- **`lfm2.5:8b-a1b-q8_0` also scored 16/22** but was the least tidy. It hit the step limit in 4 runs, looping on `search`, sometimes emitted a malformed tool call as plain text, and wrote its reasoning into the answer in every run. The host strips `<think>` text, and re-grading with it stripped changed none of the verdicts.
 - **`qwen3:0.6b` is too small** for 15 tools. It often said the tools did not contain the data when they did.
 
 What this suggests for the server, which are ideas and not yet changes:
