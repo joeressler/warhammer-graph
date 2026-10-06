@@ -9,7 +9,7 @@ use rmcp::model::CallToolResult;
 use rmcp::{tool, tool_handler, tool_router, ServerHandler};
 use serde::Serialize;
 use serde_json::{Map, Value};
-use wh_ask::{AskError, Bundle, Subgraph};
+use wh_ask::{AskError, Bundle, NodeRef, Subgraph, UnitRef};
 
 use crate::params::{
     AbilityParams, DetachmentParams, DetachmentSection, FactionParams, FactionRulesParams,
@@ -28,24 +28,50 @@ const MAX_SUBGRAPH_NODES: usize = 150;
 const DEFAULT_LIST: usize = 200;
 const MAX_LIST: usize = 1000;
 
-/// A list that may have been cut. `total` is the full count, so an agent can
-/// tell a complete list from a partial one and ask for more.
+/// A list that may have been cut. `summary` states the count in a sentence, so a
+/// model reads the number instead of counting items, and `total` is the full
+/// count, so an agent can tell a complete list from a partial one.
 #[derive(Serialize)]
 struct Listing<T> {
+    summary: String,
     total: usize,
     truncated: bool,
     items: Vec<T>,
 }
 
-fn listing<T>(mut items: Vec<T>, limit: Option<usize>) -> Listing<T> {
+/// Cut `items` to the limit and describe them. `describe` gets the full count.
+fn listing<T>(mut items: Vec<T>, limit: Option<usize>, describe: impl FnOnce(usize) -> String) -> Listing<T> {
     let limit = limit.unwrap_or(DEFAULT_LIST).clamp(1, MAX_LIST);
     let total = items.len();
     items.truncate(limit);
+    let mut summary = describe(total);
+    if total > limit {
+        summary.push_str(&format!(" Showing the first {limit}; pass a larger limit for more."));
+    }
     Listing {
+        summary,
         total,
         truncated: total > limit,
         items,
     }
+}
+
+/// A roster with its size stated up front.
+#[derive(Serialize)]
+struct RosterReply {
+    summary: String,
+    count: usize,
+    subject: NodeRef,
+    units: Vec<UnitRef>,
+}
+
+/// `1 stratagem`, `2 stratagems`.
+fn count_of(n: usize, noun: &str) -> String {
+    let plural = match noun.strip_suffix('y') {
+        Some(stem) => format!("{stem}ies"),
+        None => format!("{noun}s"),
+    };
+    format!("{n} {}", if n == 1 { noun } else { plural.as_str() })
 }
 
 /// The server. It holds one open bundle, shared by every request.
@@ -111,7 +137,15 @@ includes the generic parent units it can take. Takes a name or id; list_factions
         annotations(read_only_hint = true)
     )]
     async fn get_roster(&self, Parameters(p): Parameters<RosterParams>) -> CallToolResult {
-        reply::from(self.bundle.roster(&p.subject))
+        reply::from(self.bundle.roster(&p.subject).map(|roster| {
+            let count = roster.units.len();
+            RosterReply {
+                summary: format!("{} can field {}.", roster.subject.name, count_of(count, "unit")),
+                count,
+                subject: roster.subject,
+                units: roster.units,
+            }
+        }))
     }
 
     #[tool(
@@ -119,7 +153,7 @@ includes the generic parent units it can take. Takes a name or id; list_factions
 rules, damaged profile), keywords, model stats including the invulnerable save, composition, \
 points, abilities, wargear with weapon stats, wargear options, the units it can lead, and the \
 leaders that can join it. Takes a name or id. A name several units share is an error listing \
-their ids. Pass sections to get only some. enhancements and detachment_rules are only returned \
+their ids; report that more than one exists and cover each. Pass sections to get only some. enhancements and detachment_rules are only returned \
 when asked for.",
         annotations(read_only_hint = true)
     )]
@@ -128,8 +162,9 @@ when asked for.",
     }
 
     #[tool(
-        description = "Get a detachment's stratagems, its own rules, and its enhancements. Pass \
-sections to get only some. A name several detachments share is an error listing their ids.",
+        description = "Get a detachment's stratagems (with command point cost, turn, and phase), its own rules, and its enhancements (with points cost). \
+The reply states how many of each there are. Pass sections to get only some. A name several detachments share is an error listing their ids; \
+report that more than one exists and cover each.",
         annotations(read_only_hint = true)
     )]
     async fn get_detachment(&self, Parameters(p): Parameters<DetachmentParams>) -> CallToolResult {
@@ -155,11 +190,12 @@ keywords have hundreds of units, so the reply gives the total and returns up to 
         annotations(read_only_hint = true)
     )]
     async fn units_with_keyword(&self, Parameters(p): Parameters<KeywordParams>) -> CallToolResult {
-        reply::from(
-            self.bundle
-                .units_with_keyword(&p.keyword)
-                .map(|units| listing(units, p.limit)),
-        )
+        reply::from(self.bundle.units_with_keyword(&p.keyword).map(|units| {
+            listing(units, p.limit, |total| {
+                let verb = if total == 1 { "has" } else { "have" };
+                format!("{} {verb} the keyword {}.", count_of(total, "unit"), p.keyword)
+            })
+        }))
     }
 
     #[tool(
@@ -169,18 +205,28 @@ Feel No Pain 5+ or Deadly Demise D6. The reply gives the total and returns up to
         annotations(read_only_hint = true)
     )]
     async fn units_with_ability(&self, Parameters(p): Parameters<AbilityParams>) -> CallToolResult {
-        reply::from(
-            self.bundle
-                .units_with_ability(&p.ability)
-                .map(|holders| listing(holders, p.limit)),
-        )
+        reply::from(self.bundle.units_with_ability(&p.ability).map(|holders| {
+            let units = holders
+                .iter()
+                .map(|holder| holder.unit.id.as_str())
+                .collect::<std::collections::HashSet<_>>()
+                .len();
+            listing(holders, p.limit, |entries| {
+                let verb = if units == 1 { "has" } else { "have" };
+                let mut summary = format!("{} {verb} the ability {}.", count_of(units, "unit"), p.ability);
+                if entries != units {
+                    summary.push_str(&format!(" It appears {entries} times, because some units have several values."));
+                }
+                summary
+            })
+        }))
     }
 
     #[tool(
         description = "List the units an enhancement can be given to (kind enhancement), or the \
 units a detachment rule names (kind detachment_rule), such as who gets Idols of Khorne. \
 Enhancement names repeat across detachments; a shared name is an error listing each id and its \
-detachment.",
+detachment, and you should report that more than one exists.",
         annotations(read_only_hint = true)
     )]
     async fn units_for_rule(&self, Parameters(p): Parameters<RuleUnitsParams>) -> CallToolResult {
@@ -240,8 +286,10 @@ Start with get_unit for a question about one unit, get_roster for a faction, cha
 question, and get_detachment for stratagems, rules, and enhancements. \
 Names must be exact, though case, 'the', and apostrophe style do not matter. \
 When a name matches nothing, the error lists close names. \
-When a name matches several things, the error lists their ids and what tells them apart; call again with one id. \
+When a name matches several things, the error lists their ids and what tells them apart. \
+Do not pick one silently: tell the user that more than one exists, and either ask which is meant or answer for each by calling again with each id. \
 find_units and search help you find the right name. \
+Results that list things state how many there are, in a summary or a count field. Read that number; do not count the items yourself. \
 Every result is JSON. An empty list means the source data has none, not that the call failed: \
 some units, such as Angron, have no leader entries in the source export. \
 When you show results to a person, credit Wahapedia, and use the wahapedia_link fields where there are any."
@@ -283,45 +331,53 @@ impl WhServer {
     }
 
     fn detachment_json(&self, p: DetachmentParams) -> Result<Value, AskError> {
-        let mut out = Map::new();
+        let mut sections = Map::new();
+        let mut counts = Vec::new();
         for section in sections_or(p.sections, DetachmentSection::ALL) {
             match section {
-                DetachmentSection::Stratagems => put(
-                    &mut out,
-                    "stratagems",
-                    &self.bundle.detachment_stratagems(&p.detachment)?,
-                ),
-                DetachmentSection::Rules => {
-                    put(&mut out, "rules", &self.bundle.detachment_rules(&p.detachment)?)
+                DetachmentSection::Stratagems => {
+                    let found = self.bundle.detachment_stratagems(&p.detachment)?;
+                    counts.push(count_of(found.len(), "stratagem"));
+                    put(&mut sections, "stratagems", &found);
                 }
-                DetachmentSection::Enhancements => put(
-                    &mut out,
-                    "enhancements",
-                    &self.bundle.detachment_enhancements(&p.detachment)?,
-                ),
+                DetachmentSection::Rules => {
+                    let found = self.bundle.detachment_rules(&p.detachment)?;
+                    counts.push(count_of(found.len(), "rule"));
+                    put(&mut sections, "rules", &found);
+                }
+                DetachmentSection::Enhancements => {
+                    let found = self.bundle.detachment_enhancements(&p.detachment)?;
+                    counts.push(count_of(found.len(), "enhancement"));
+                    put(&mut sections, "enhancements", &found);
+                }
             }
         }
-        Ok(Value::Object(out))
+        Ok(with_summary("This detachment has", &counts, sections))
     }
 
     fn faction_json(&self, p: FactionRulesParams) -> Result<Value, AskError> {
-        let mut out = Map::new();
+        let mut sections = Map::new();
+        let mut counts = Vec::new();
         for section in sections_or(p.sections, FactionSection::DEFAULT) {
             match section {
                 FactionSection::Abilities => {
-                    put(&mut out, "abilities", &self.bundle.faction_abilities(&p.faction)?)
+                    let found = self.bundle.faction_abilities(&p.faction)?;
+                    counts.push(count_of(found.len(), "ability"));
+                    put(&mut sections, "abilities", &found);
                 }
                 FactionSection::Stratagems => {
-                    put(&mut out, "stratagems", &self.bundle.faction_stratagems(&p.faction)?)
+                    let found = self.bundle.faction_stratagems(&p.faction)?;
+                    counts.push(count_of(found.len(), "stratagem"));
+                    put(&mut sections, "stratagems", &found);
                 }
-                FactionSection::Enhancements => put(
-                    &mut out,
-                    "enhancements",
-                    &self.bundle.faction_enhancements(&p.faction)?,
-                ),
+                FactionSection::Enhancements => {
+                    let found = self.bundle.faction_enhancements(&p.faction)?;
+                    counts.push(count_of(found.len(), "enhancement"));
+                    put(&mut sections, "enhancements", &found);
+                }
             }
         }
-        Ok(Value::Object(out))
+        Ok(with_summary("This faction has", &counts, sections))
     }
 
     /// The library allows 2000 edges, which is too much for a model's context, so
@@ -339,6 +395,25 @@ impl WhServer {
             graph.nodes.truncate(MAX_SUBGRAPH_NODES);
         }
         Ok(graph)
+    }
+}
+
+/// `sections` with a `summary` sentence and a `counts` list ahead of them, so the
+/// numbers are the first thing a model reads.
+fn with_summary(lead: &str, counts: &[String], sections: Map<String, Value>) -> Value {
+    let mut out = Map::new();
+    out.insert("summary".to_string(), Value::String(format!("{lead} {}.", join_counts(counts))));
+    out.insert("counts".to_string(), Value::Array(counts.iter().cloned().map(Value::String).collect()));
+    out.extend(sections);
+    Value::Object(out)
+}
+
+/// `a`, `a and b`, `a, b and c`.
+fn join_counts(counts: &[String]) -> String {
+    match counts {
+        [] => "nothing".to_string(),
+        [only] => only.clone(),
+        [rest @ .., last] => format!("{} and {last}", rest.join(", ")),
     }
 }
 
