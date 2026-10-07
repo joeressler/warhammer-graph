@@ -36,6 +36,29 @@ The contracts those tools follow are the specifications. Read them in this order
 
 The `wh-corpus` help text includes the line `powered by Wahapedia`. Anything you build on the library that shows its results to people should credit Wahapedia too. Units, rules, and nodes in general carry a `wahapedia_link` you can show with them.
 
+## Quick start
+
+Once Python and Rust are installed (see below), one command does everything up to a working MCP server. From the repository root:
+
+```bash
+python scripts/setup.py
+```
+
+It installs `wh-corpus`, downloads the Wahapedia export, writes the corpus, compiles `wh-graph` and `wh-mcp`, builds and checks the graph bundle, and then prints the line that registers the server with Claude Code. The first run needs the network and takes several minutes, mostly compiling Rust. It stops at the first step that fails and says which one.
+
+Options:
+
+| Option | Effect |
+| --- | --- |
+| `--register` | Also register the server with Claude Code (`--scope user`, so every Claude Code session on this machine can use it). Needs the `claude` command. |
+| `--skip-export` | Reuse the existing `./corpus` instead of downloading again. |
+| `--no-install` | Do not pip-install `wh-corpus`. The script skips this on its own when the package is already importable. |
+| `--edition 10ed` | The Wahapedia edition. |
+
+Activate a virtual environment first if you want `wh-corpus` kept out of your main Python (see the steps below). Running the script again is safe: the download is cached, and the bundle is replaced only after the new one passes validation.
+
+The steps below are what the script runs, one at a time, for when you want to run or change a single step.
+
 ## What you need
 
 | Tool | Used by | Requirement |
@@ -73,7 +96,7 @@ Generated data stays outside the repo. A typical local run uses three directorie
 ./bundle/               manifest.json, JSONL files, and graph.db
 ```
 
-## Run the pipeline
+## Run the steps by hand
 
 Install `wh-corpus` from the repository root:
 

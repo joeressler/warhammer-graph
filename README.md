@@ -9,7 +9,13 @@ Start with the [getting started guide](docs/getting-started.md). Each applicatio
 - [wh-ask](docs/getting-started/wh-ask.md) is the Rust library that opens the bundle and answers lookups, searches, and list requests.
 - [wh-mcp](docs/getting-started/wh-mcp.md) is the MCP server that exposes the library to an AI agent over stdio. A [Python example](docs/getting-started/ollama-host.md) connects it to a local Ollama model.
 
-Once the tools are installed, the pipeline is:
+With Python and Rust installed, one command downloads the data, builds the bundle, and builds the MCP server:
+
+```bash
+python scripts/setup.py
+```
+
+Or run the steps yourself:
 
 ```bash
 wh-corpus export --edition 10ed --cache-dir ./cache --out ./corpus
