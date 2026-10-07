@@ -6,6 +6,8 @@
 you  ->  host.py  ->  Ollama model  <->  wh-mcp (started by host.py)  ->  bundle
 ```
 
+The host can use llama.cpp's `llama-server` instead of Ollama (`--backend llamacpp`). See the [llama.cpp host guide](llamacpp-host.md).
+
 It is an example and a test of the server with a model that is not Claude. It is not part of the Rust workspace or of the `wh-corpus` package, and its dependencies are listed separately.
 
 ## Install

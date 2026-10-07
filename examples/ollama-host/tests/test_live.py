@@ -38,7 +38,7 @@ def real_bundle():
 @pytest.mark.parametrize("question_id", CORE)
 def test_the_model_answers_a_core_question_from_the_tools(exe, real_bundle, question_id: str) -> None:
     args = argparse.Namespace(
-        ollama_host=None, num_ctx=host.DEFAULT_NUM_CTX, temperature=0.0,
+        backend="ollama", base_url=None, ollama_host=None, num_ctx=host.DEFAULT_NUM_CTX, temperature=0.0,
         max_steps=host.DEFAULT_MAX_STEPS, max_tool_chars=host.DEFAULT_MAX_TOOL_CHARS, timeout=240.0,
     )
 

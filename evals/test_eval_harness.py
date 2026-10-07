@@ -64,6 +64,7 @@ def test_a_count_answer_is_a_number_the_tools_state() -> None:
         ("1. First thing\n2. Second thing", []),
         ("Save 4+ and move 6\"", ["4", "6"]),
         ("The 10th edition Warhammer 40,000 rules say 116 units", ["116"]),
+        ("Angron (ID: 10ed:datasheet:000002621) has 16 wounds", ["16"]),
         ("In Warhammer 40000 and WH40k, 7 units", ["7"]),
     ],
 )
@@ -216,6 +217,20 @@ def test_aggregates_and_the_markdown_summary(tmp_path: Path) -> None:
     assert json.loads((run / "summary.json").read_text(encoding="utf-8"))["items"][1]["hallucinated_numbers"] == ["7"]
 
 
+def test_an_exported_sample_cuts_answers_short_and_keeps_the_numbers(tmp_path: Path) -> None:
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    long_answer = "Angron has Toughness 11. " + "A line that might quote a published rule. " * 5
+    (run_dir / "q.json").write_text(json.dumps({"id": "q", **trace(long_answer, ("get_unit", {"unit": "Angron"}, '{"T":11}'))}), encoding="utf-8")
+    golden = tmp_path / "golden.jsonl"
+    golden.write_text(json.dumps(case("lookup", 11, ["get_unit"]) | {"id": "q"}) + "\n", encoding="utf-8")
+    grade.grade_run(run_dir, golden)
+    grade.export_sample(run_dir, tmp_path / "sample")
+    sample = json.loads((tmp_path / "sample" / "summary.json").read_text(encoding="utf-8"))
+    assert len(sample["items"][0]["answer"]) <= 60 and sample["items"][0]["answer_correct"] is True
+    assert (tmp_path / "sample" / "summary.md").exists() and sample["aggregate"]["answer_exact_match"]["pct"] == 100.0
+
+
 # ---------------------------------------------------------------- the runner
 
 def reply(content: str = "", *calls: tuple[str, dict[str, Any]]) -> SimpleNamespace:
@@ -314,6 +329,23 @@ def test_run_ids_carry_the_time_and_the_model() -> None:
     from datetime import datetime, timezone
 
     assert make_run_id("granite4.1:8b", datetime(2026, 10, 7, 9, 5, 3, tzinfo=timezone.utc)) == "20261007-090503_granite4.1-8b"
+
+
+def test_a_non_ollama_backend_is_part_of_the_run_id_and_recorded_in_run_json(exe, bundle, tmp_path) -> None:
+    from datetime import datetime, timezone
+
+    assert make_run_id("m", datetime(2026, 1, 2, 3, 4, 5, tzinfo=timezone.utc), "llamacpp") == "20260102-030405_m_llamacpp"
+    server = {"n_ctx": 8192, "build_info": "b1"}
+    directory = run(exe, bundle, tmp_path, Scripted(reply("one"), reply("two")), backend="llamacpp", server=server)
+    meta = json.loads((directory / "run.json").read_text(encoding="utf-8"))
+    assert meta["backend"] == "llamacpp" and meta["num_ctx"] == 8192 and meta["server"] == server
+
+
+def test_preflight_for_llama_server_says_how_to_start_it_when_it_is_down() -> None:
+    from evals.run import preflight
+
+    message = asyncio.run(preflight("m", None, "llamacpp", "http://127.0.0.1:9"))
+    assert message and "serve_llamacpp.py" in message and "127.0.0.1:9" in message
 
 
 def test_select_filters_by_id_and_limit_and_rejects_unknown_ids() -> None:

@@ -41,7 +41,8 @@ class Result:
 
 
 async def run_one(client: Client, tools: list[dict[str, Any]], model: str, question: Question, run: int, args: argparse.Namespace) -> Result:
-    chat = host.OllamaChat(model, host=args.ollama_host, num_ctx=args.num_ctx, temperature=args.temperature)
+    url = args.base_url if args.backend == "llamacpp" else args.ollama_host
+    chat = host.make_chat(args.backend, model, url=url, num_ctx=args.num_ctx, temperature=args.temperature)
     conversation = host.Host(client, chat, tools, host.system_prompt(client.instructions), max_steps=args.max_steps, max_tool_chars=args.max_tool_chars)
     started = time.monotonic()
     try:
@@ -98,7 +99,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--questions", default=None, help="Comma-separated question ids (default: all).")
     parser.add_argument("--bundle", type=Path, default=host.ROOT / "bundle")
     parser.add_argument("--exe", type=Path, default=None)
+    parser.add_argument("--backend", choices=host.BACKENDS, default="ollama")
     parser.add_argument("--ollama-host", default=None)
+    parser.add_argument("--base-url", default=None, help="llama-server URL for --backend llamacpp.")
     parser.add_argument("--num-ctx", type=int, default=host.DEFAULT_NUM_CTX)
     parser.add_argument("--temperature", type=float, default=0.0)
     parser.add_argument("--max-steps", type=int, default=host.DEFAULT_MAX_STEPS)

@@ -57,7 +57,7 @@ def answer_numbers(text: str, *, skip_one: bool = False) -> list[str]:
     Number words count (`twenty-one` is 21). With `skip_one`, the word "one" does
     not, because in prose it is usually not a quantity ("up to one enhancement").
     """
-    text = _GAME_NAME.sub(" ", _LIST_MARKER.sub("", plain(text)))
+    text = _GAME_NAME.sub(" ", _LIST_MARKER.sub("", _NODE_ID.sub(" ", plain(text))))
     found = [(m.start(), canon(m.group(1) + (m.group(2) or ""))) for m in _ANSWER_NUMBER.finditer(text)]
     for m in _WORD_NUMBER.finditer(text):
         tens, ones, single = m.groups()
@@ -281,7 +281,7 @@ def render_markdown(summary: dict[str, Any]) -> str:
     lines = [f"# Eval run `{summary['run_id']}`", ""]
     if meta:
         lines += [
-            f"- Model: `{meta.get('model')}`, temperature {meta.get('temperature')}, context {meta.get('num_ctx')}, "
+            f"- Model: `{meta.get('model')}` on {meta.get('backend', 'ollama')}, temperature {meta.get('temperature')}, context {meta.get('num_ctx')}, "
             f"{meta.get('max_steps')} steps, tool results cut at {meta.get('max_tool_chars')} characters",
             f"- Bundle fingerprint: `{str(meta.get('corpus_fingerprint'))[:16]}`, commit `{str(meta.get('git_commit'))[:10]}`",
             f"- Questions graded: {agg['questions']} of {summary['golden_questions']}",
@@ -322,15 +322,36 @@ def render_markdown(summary: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def export_sample(run_dir: Path, destination: Path, answer_chars: int = 60) -> None:
+    """Copy a graded run's summaries to `destination`, with each answer cut short.
+
+    Full answers can quote published rules, which this repository does not commit,
+    so a checked-in sample keeps only the first `answer_chars` of each.
+    """
+    destination.mkdir(parents=True, exist_ok=True)
+    summary = json.loads((run_dir / "summary.json").read_text(encoding="utf-8"))
+    for row in summary["items"]:
+        text = " ".join(row["answer"].split())
+        row["answer"] = text if len(text) <= answer_chars else text[: answer_chars - 3] + "..."
+    (destination / "summary.json").write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8", newline="\n")
+    for name in ("summary.md", "run.json"):
+        if not (run_dir / name).exists():
+            continue
+        (destination / name).write_text((run_dir / name).read_text(encoding="utf-8"), encoding="utf-8", newline="\n")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Grade an eval run directory.")
     parser.add_argument("run_dir", type=Path)
     parser.add_argument("--golden", type=Path, default=GOLDEN)
+    parser.add_argument("--export-sample", type=Path, default=None, metavar="DIR", help="After grading, copy the summaries to DIR with answers cut short (for checking in).")
     args = parser.parse_args(argv)
     if not args.run_dir.is_dir():
         print(f"grade: {args.run_dir} is not a directory", file=sys.stderr)
         return 2
     summary = grade_run(args.run_dir, args.golden)
+    if args.export_sample:
+        export_sample(args.run_dir, args.export_sample)
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     print((args.run_dir / "summary.md").read_text(encoding="utf-8"))
     return 0 if summary["aggregate"]["questions"] else 1
