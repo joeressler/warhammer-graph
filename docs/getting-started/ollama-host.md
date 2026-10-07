@@ -169,5 +169,32 @@ What changed:
 
 The same caveats apply: two runs at temperature 0, five models, eleven questions.
 
+### A larger run: 5 runs at temperature 0.17
+
+The same questions, with 5 runs per cell and a small amount of randomness (temperature 0.17), so each cell is five different samples instead of one repeated. Cells are passes out of 5.
+
+| Question | granite4.1:8b | granite4.1:3b | lfm2.5:8b-a1b-q8_0 | qwen3:0.6b | gpt-oss:20b |
+|---|---|---|---|---|---|
+| `angron_invuln` | 5/5 | 5/5 | 5/5 | 3/5 | 5/5 |
+| `angron_weapons` | 5/5 | 3/5 | 5/5 | 0/5 | 5/5 |
+| `warboss_points` | 5/5 | 5/5 | 4/5 | 3/5 | 5/5 |
+| `dropship_transport` | 0/5 | 0/5 | 1/5 | 4/5 | 5/5 |
+| `imotekh_leads` | 5/5 | 0/5 | 5/5 | 0/5 | 5/5 |
+| `khorne_units` | 5/5 | 0/5 | 0/5 | 0/5 | 5/5 |
+| `idols_of_khorne` | 4/5 | 5/5 | 0/5 | 3/5 | 5/5 |
+| `fnp_count` | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 |
+| `auric_stratagems` | 5/5 | 5/5 | 5/5 | 3/5 | 5/5 |
+| `typo_recovery` | 5/5 | 5/5 | 5/5 | 2/5 | 5/5 |
+| `daemonic_incursion` | 5/5 | 0/5 | 3/5 | 3/5 | 3/5 |
+| **Total** | **49/55** | **33/55** | **38/55** | **26/55** | **53/55** |
+| Median time per question | 6 s | 2 s | 5 s | 3 s | 6 s |
+
+Totals out of 55: `gpt-oss:20b` 53, `granite4.1:8b` 49, `lfm2.5` 38, `granite4.1:3b` 33, `qwen3:0.6b` 26. The ranking matches the earlier run, so it was not an accident of two samples.
+
+- **The fixes held.** `fnp_count` passed in all 25 runs across the five models. `typo_recovery` passed in 22 of 25, and `auric_stratagems` in 23 of 25.
+- **The counting fix depends on the model.** `khorne_units` passed 5 of 5 for `granite4.1:8b` and `gpt-oss:20b` and 0 of 5 for the other three.
+- **Still weak:** the transport capacity in free text (`dropship_transport`: 10 of 25 overall, 0 of 5 for both granite models), `granite4.1:3b` on Imotekh's leaders and on the ambiguous detachment (0 of 5 each), and `lfm2.5` on `idols_of_khorne` (0 of 5).
+- **`gpt-oss:20b` is not perfectly consistent.** It reported both detachments in 3 of 5 runs of `daemonic_incursion`.
+
 To reproduce or extend the table, run `evaluate.py` with the models you have.
 

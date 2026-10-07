@@ -17,6 +17,7 @@ wh-mcp    (Rust bin) <-  wh-ask     15 read-only MCP tools over stdio, for an AI
 | `crates/wh-ask/` | Bundle reader library, no binary. `bundle.rs` (open, indexes, id/name resolution), `names.rs`, `search.rs`, `graph.rs`, `lists.rs`, `roster.rs`, `types.rs`, `error.rs`. Unit tests are in `names.rs` and `lists.rs`, integration tests in `tests/api.rs`. |
 | `crates/wh-mcp/` | MCP server binary over `wh-ask`. `main.rs` (arguments, open the bundle, serve on stdio), `server.rs` (the 15 tools), `params.rs` (tool inputs), `reply.rs` (results and errors). `tests/stdio.rs` starts the real binary and speaks JSON-RPC to it. |
 | `examples/ollama-host/` | A Python host that connects a local Ollama model to `wh-mcp`: `host.py` (the loop and CLI), `questions.py` (graded questions), `evaluate.py` (model comparison), and `tests/`. Its dependencies are in its own `requirements.txt`, not `pyproject.toml`. |
+| `scripts/setup.py` | One-step setup: runs `wh_corpus export`, `cargo build --release`, `wh-graph build` and `validate` as subprocesses, stopping at the first failure. Standard library only. Tested with faked commands in `tests/test_setup_script.py`. |
 | `docs/specs/` | Frozen contracts: `01-python-cli.md`, `02-rust-graph.md`, `03-rust-library.md`, `04-mcp-server.md`. |
 | `docs/getting-started*` | Install and usage guides. `docs/schemas/` holds the corpus v1 JSON Schema. |
 
@@ -25,6 +26,7 @@ Generated data stays out of git: `cache/` (raw CSV), `corpus/`, `bundle/` (about
 ## Commands
 
 ```bash
+python scripts/setup.py                 # one step: install wh-corpus, export, build the bundle, build wh-mcp (--register adds it to Claude Code)
 # Python (use `python`, not `python3`, in Git Bash on this Windows machine)
 python -m venv .venv                    # activate: .venv\Scripts\activate (PowerShell) or source .venv/Scripts/activate (Git Bash)
 python -m pip install -e ".[dev]"
@@ -107,7 +109,7 @@ Toolchain here is Rust 1.96.1 and Python 3.13. The docs state Rust 1.83 or newer
 - Ollama (0.35.1) accepts `wh-mcp`'s tool schemas unchanged, including the `$defs` enums on `sections`. A model must list `tools` in `ollama show`. Installed chat models that do: `granite4.1:8b` (the default), `granite4.1:3b`, `lfm2.5:8b-a1b-q8_0`, `qwen3:0.6b`, and `gpt-oss:20b` (13 GB, pulled 2026-10-06). The machine has an RTX 5000 Ada laptop GPU with 16 GB of VRAM and 64 GB of RAM, so about 13 GB of weights is the practical ceiling. Set `num_ctx` (the host uses 16384); Ollama's default is small.
 - On Windows a piped Python stdout is cp1252 and raises on characters models write, such as the non-breaking hyphen U+2011. The host switches output to UTF-8. Grading in `questions.py` maps typographic dashes, quotes, and spaces to plain forms before comparing.
 - The host's offline tests drive the real loop with a scripted fake model against the real `wh-mcp` and a synthetic bundle built by `wh-graph` from `crates/wh-graph/tests/fixtures/rich`. Do not use `./bundle` in tests that must run anywhere.
-- Model comparison (2026-10-06, 11 questions, 2 runs, temperature 0, passes out of 22), before then after the count, spelling, and ambiguity changes: `gpt-oss:20b` 16 to 21, `granite4.1:8b` 12 to 19, `lfm2.5` 16 to 16, `granite4.1:3b` 10 to 15, `qwen3:0.6b` 4 to 12. The count in a `summary` sentence fixed `fnp_count` for every model. Still failing: free-text transport capacity (no typed field), Imotekh's leaders for small models, and `granite4.1:3b` skipping an ambiguity. The host's 12,000-character tool-result cut broke `gpt-oss:20b` once (nonsense replies), so try `--max-tool-chars 0` on large contexts. See `docs/getting-started/ollama-host.md`.
+- Model comparison (2026-10-06, 11 questions, 2 runs, temperature 0, passes out of 22), before then after the count, spelling, and ambiguity changes: `gpt-oss:20b` 16 to 21, `granite4.1:8b` 12 to 19, `lfm2.5` 16 to 16, `granite4.1:3b` 10 to 15, `qwen3:0.6b` 4 to 12. The count in a `summary` sentence fixed `fnp_count` for every model. Still failing: free-text transport capacity (no typed field), Imotekh's leaders for small models, and `granite4.1:3b` skipping an ambiguity. The host's 12,000-character tool-result cut broke `gpt-oss:20b` once (nonsense replies), so try `--max-tool-chars 0` on large contexts. A 5-run, temperature 0.17 repeat gave 53, 49, 38, 33 and 26 of 55 in the same order (`gpt-oss:20b`, `granite4.1:8b`, `lfm2.5`, `granite4.1:3b`, `qwen3:0.6b`). See `docs/getting-started/ollama-host.md`.
 
 ## Leftovers from the removed LLM app
 
