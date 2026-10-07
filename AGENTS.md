@@ -18,6 +18,7 @@ wh-mcp    (Rust bin) <-  wh-ask     15 read-only MCP tools over stdio, for an AI
 | `crates/wh-mcp/` | MCP server binary over `wh-ask`. `main.rs` (arguments, open the bundle, serve on stdio), `server.rs` (the 15 tools), `params.rs` (tool inputs), `reply.rs` (results and errors). `tests/stdio.rs` starts the real binary and speaks JSON-RPC to it. |
 | `examples/ollama-host/` | A Python host that connects a local Ollama model to `wh-mcp`: `host.py` (the loop and CLI), `questions.py` (graded questions), `evaluate.py` (model comparison), and `tests/`. Its dependencies are in its own `requirements.txt`, not `pyproject.toml`. |
 | `scripts/setup.py` | One-step setup: runs `wh_corpus export`, `cargo build --release`, `wh-graph build` and `validate` as subprocesses, stopping at the first failure. Standard library only. Tested with faked commands in `tests/test_setup_script.py`. |
+| `evals/` | Eval harness for the agent: `golden.jsonl` (60 questions, static), `author.py` (computes answers from the bundle), `run.py` (runs them through `examples/ollama-host/host.py`), `grade.py` (deterministic grader), `README.md` (scoring contract and the checked-in baseline in `baseline/`). Offline tests in `test_eval_harness.py`; the live run is `pytest evals -m eval --eval-model <model>`. |
 | `docs/specs/` | Frozen contracts: `01-python-cli.md`, `02-rust-graph.md`, `03-rust-library.md`, `04-mcp-server.md`. |
 | `docs/getting-started*` | Install and usage guides. `docs/schemas/` holds the corpus v1 JSON Schema. |
 
@@ -46,6 +47,9 @@ python -m pytest examples/ollama-host/tests                          # offline; 
 OLLAMA_LIVE=1 python -m pytest examples/ollama-host/tests/test_live.py   # opt-in, needs Ollama and ./bundle
 python examples/ollama-host/evaluate.py --models granite4.1:8b --runs 2   # model comparison table
 cargo test --workspace
+pytest evals                                                         # eval harness tests, offline
+pytest evals -m eval --eval-model granite4.1:8b -s                   # live baseline: golden set through the real agent (~7 min)
+python -m evals.author --write --check                               # regenerate golden.jsonl from ./bundle (a new golden set needs a new baseline)
 ```
 
 Toolchain here is Rust 1.96.1 and Python 3.13. The docs state Rust 1.83 or newer (1.88 or newer for `wh-mcp`, which the MCP SDK requires) and Python 3.12 or newer as minimums. Only `wh-corpus fetch` and `export` use the network (they check the remote `Last_update.csv` even when `./cache` is warm). `assemble`, `validate`, `wh-graph`, `wh-ask`, `wh-mcp`, and every test run offline. No tool needs a native toolchain, a model file, or a GPU.
@@ -110,6 +114,8 @@ Toolchain here is Rust 1.96.1 and Python 3.13. The docs state Rust 1.83 or newer
 - On Windows a piped Python stdout is cp1252 and raises on characters models write, such as the non-breaking hyphen U+2011. The host switches output to UTF-8. Grading in `questions.py` maps typographic dashes, quotes, and spaces to plain forms before comparing.
 - The host's offline tests drive the real loop with a scripted fake model against the real `wh-mcp` and a synthetic bundle built by `wh-graph` from `crates/wh-graph/tests/fixtures/rich`. Do not use `./bundle` in tests that must run anywhere.
 - Model comparison (2026-10-06, 11 questions, 2 runs, temperature 0, passes out of 22), before then after the count, spelling, and ambiguity changes: `gpt-oss:20b` 16 to 21, `granite4.1:8b` 12 to 19, `lfm2.5` 16 to 16, `granite4.1:3b` 10 to 15, `qwen3:0.6b` 4 to 12. The count in a `summary` sentence fixed `fnp_count` for every model. Still failing: free-text transport capacity (no typed field), Imotekh's leaders for small models, and `granite4.1:3b` skipping an ambiguity. The host's 12,000-character tool-result cut broke `gpt-oss:20b` once (nonsense replies), so try `--max-tool-chars 0` on large contexts. A 5-run, temperature 0.17 repeat gave 53, 49, 38, 33 and 26 of 55 in the same order (`gpt-oss:20b`, `granite4.1:8b`, `lfm2.5`, `granite4.1:3b`, `qwen3:0.6b`). See `docs/getting-started/ollama-host.md`.
+
+- Eval baseline (2026-10-07, `granite4.1:8b`, temperature 0, `evals/golden.jsonl`): answer exact match 98.0%, tool correct 98.2%, abstain correct 33.3%, hallucination 1.7%. The weakness is declining: it answers refusal questions with a nearby real unit or a different edition's number. Later prompt, verifier, or training work must beat these on the same golden set. Keep `golden.jsonl` out of any training data.
 
 ## Leftovers from the removed LLM app
 
