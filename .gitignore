@@ -11,3 +11,4 @@ corpus/
 bundle/
 *.db-wal
 *.db-shm
+evals/results/

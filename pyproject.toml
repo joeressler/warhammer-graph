@@ -31,4 +31,5 @@ packages = ["src/wh_corpus"]
 "docs/schemas/corpus-v1.schema.json" = "wh_corpus/corpus-v1.schema.json"
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "evals"]
+markers = ["eval: live evaluation of the agent against a real Ollama model (select with -m eval)"]

@@ -1,0 +1,16 @@
+{
+  "run_id": "20261007-210310_granite4.1-8b",
+  "model": "granite4.1:8b",
+  "temperature": 0.0,
+  "num_ctx": 16384,
+  "max_steps": 8,
+  "max_tool_chars": 12000,
+  "timeout": 240.0,
+  "questions": 60,
+  "git_commit": "b4ca64d51f201cc1cea2460381a671e2e9cdc838",
+  "corpus_fingerprint": "ebdb143faa6578e4fbbf9ee4cd28dd085f3d87ea61fc773a21fba3ce37815b0d",
+  "golden_sha256": "0b87b0c2dd0083d3fa9cfafaa5e865b651234241d1803d31aca13e84630bbb01",
+  "started_at": "2026-10-07T21:03:10+00:00",
+  "status": "complete",
+  "finished_at": "2026-10-07T21:09:38+00:00"
+}
