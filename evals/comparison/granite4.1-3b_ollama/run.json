@@ -1,0 +1,18 @@
+{
+  "run_id": "20261007-230112_granite4.1-3b",
+  "model": "granite4.1:3b",
+  "backend": "ollama",
+  "temperature": 0.0,
+  "num_ctx": 16384,
+  "server": {},
+  "max_steps": 8,
+  "max_tool_chars": 12000,
+  "timeout": 240.0,
+  "questions": 60,
+  "git_commit": "f4d7ff26d6929d17f15f7c7b17281cdb7a5e41cc",
+  "corpus_fingerprint": "ebdb143faa6578e4fbbf9ee4cd28dd085f3d87ea61fc773a21fba3ce37815b0d",
+  "golden_sha256": "5281e1169bfd0fd419e1b871df69ecdcc0e6127c512d46fc92c5665bea9634f7",
+  "started_at": "2026-10-07T23:01:12+00:00",
+  "status": "complete",
+  "finished_at": "2026-10-07T23:03:21+00:00"
+}

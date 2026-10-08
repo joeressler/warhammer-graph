@@ -93,6 +93,15 @@ What to take from it:
 - **llama.cpp was a little faster**, about one second per question at the median.
 - **Compare like with like.** The Ollama baseline stays the control for the evals. A model served by llama.cpp should be compared with the llama.cpp row, with the same build, context size, and quantization. The samples are in [`evals/baseline/`](../../evals/baseline/) and [`evals/baseline-llamacpp/`](../../evals/baseline-llamacpp/).
 
+## All five models
+
+The same comparison for every model we use, on both servers, is in [`evals/comparison/`](../../evals/comparison/README.md). In short:
+
+- `granite4.1:8b`, `gpt-oss:20b`, and `granite4.1:3b` work well on llama.cpp, within noise of Ollama or better.
+- **`lfm2.5` does not work on llama.cpp b11476 with Ollama's file.** It writes tool calls as text that llama-server does not parse, so it scores 0%. Try an official GGUF of that model, or a newer build.
+- **`gpt-oss:20b` needs the official GGUF** (`ggml-org/gpt-oss-20b-GGUF`), because Ollama's copy uses an architecture name llama.cpp does not know. Serve it with `serve_llamacpp.py --gguf <file> --alias gpt-oss:20b`.
+- `qwen3:0.6b` scored 20 points higher on llama.cpp than on Ollama in one run each. That is unexplained.
+
 ## Tests
 
 ```bash

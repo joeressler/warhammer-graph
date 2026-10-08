@@ -231,6 +231,32 @@ def test_an_exported_sample_cuts_answers_short_and_keeps_the_numbers(tmp_path: P
     assert (tmp_path / "sample" / "summary.md").exists() and sample["aggregate"]["answer_exact_match"]["pct"] == 100.0
 
 
+def test_compare_shows_finished_runs_and_keeps_the_latest_per_model_and_server(tmp_path: Path) -> None:
+    from evals import compare
+
+    def make(name: str, model: str, backend: str, status: str, pct: float) -> Path:
+        d = tmp_path / name
+        d.mkdir()
+        rate = lambda p: {"n": 10, "passed": 5, "pct": p}
+        (d / "run.json").write_text(json.dumps({"model": model, "backend": backend, "status": status}), encoding="utf-8")
+        (d / "summary.json").write_text(json.dumps({"aggregate": {
+            "questions": 60, "answer_exact_match": rate(pct), "tool_correct": rate(90.0), "abstain_correct": rate(None),
+            "hallucination": rate(1.7), "median_seconds": 4.2, "errors": 0, "step_limit": 1}}), encoding="utf-8")
+        return d
+
+    dirs = [
+        make("20260101-000000_m", "m", "ollama", "complete", 50.0),
+        make("20260102-000000_m", "m", "ollama", "complete", 60.0),
+        make("20260101-000000_m_llamacpp", "m", "llamacpp", "complete", 70.0),
+        make("20260103-000000_x", "x", "ollama", "aborted", 99.0),
+        tmp_path,
+    ]
+    rows = compare.latest([r for r in map(compare.load, (d for d in dirs if d != tmp_path)) if r])
+    assert [(r["model"], r["backend"], r["answer"]["pct"]) for r in rows] == [("m", "llamacpp", 70.0), ("m", "ollama", 60.0)]
+    markdown = compare.table(rows)
+    assert "| `m` | ollama | 60.0% | 90.0% | - | 1.7% | 4.2 | 0 | 1 |" in markdown and "aborted" not in markdown
+
+
 # ---------------------------------------------------------------- the runner
 
 def reply(content: str = "", *calls: tuple[str, dict[str, Any]]) -> SimpleNamespace:

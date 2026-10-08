@@ -32,6 +32,7 @@ golden.jsonl ──► run.py ──► examples/ollama-host/host.py (the produc
 | `test_eval_harness.py` | Offline tests of the golden file, the grader, and the runner (scripted fake model, real `wh-mcp`). |
 | `baseline/` | The control: one graded summary from a real run on this machine (Ollama). |
 | `baseline-llamacpp/` | The same model and questions served by llama.cpp, for comparing against a llama.cpp-served model. |
+| `comparison/` | Five models on both servers, one graded sample each, with a generated table (`python -m evals.compare evals/results/*`) and notes. |
 | `results/` | Your runs. Gitignored. |
 
 **Keep `golden.jsonl` out of any training data.** If a model is ever fine-tuned, these questions and answers must not be in what it trains on, or the score stops measuring anything.

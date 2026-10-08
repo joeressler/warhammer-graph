@@ -1,0 +1,1242 @@
+{
+  "run_id": "20261007-230112_granite4.1-3b",
+  "meta": {
+    "run_id": "20261007-230112_granite4.1-3b",
+    "model": "granite4.1:3b",
+    "backend": "ollama",
+    "temperature": 0.0,
+    "num_ctx": 16384,
+    "server": {},
+    "max_steps": 8,
+    "max_tool_chars": 12000,
+    "timeout": 240.0,
+    "questions": 60,
+    "git_commit": "f4d7ff26d6929d17f15f7c7b17281cdb7a5e41cc",
+    "corpus_fingerprint": "ebdb143faa6578e4fbbf9ee4cd28dd085f3d87ea61fc773a21fba3ce37815b0d",
+    "golden_sha256": "5281e1169bfd0fd419e1b871df69ecdcc0e6127c512d46fc92c5665bea9634f7",
+    "started_at": "2026-10-07T23:01:12+00:00",
+    "status": "complete",
+    "finished_at": "2026-10-07T23:03:21+00:00"
+  },
+  "golden_questions": 60,
+  "not_run": [],
+  "aggregate": {
+    "questions": 60,
+    "answer_exact_match": {
+      "n": 51,
+      "passed": 44,
+      "pct": 86.3
+    },
+    "tool_correct": {
+      "n": 56,
+      "passed": 54,
+      "pct": 96.4
+    },
+    "abstain_correct": {
+      "n": 9,
+      "passed": 1,
+      "pct": 11.1
+    },
+    "hallucination": {
+      "n": 60,
+      "passed": 4,
+      "pct": 6.7
+    },
+    "errors": 0,
+    "step_limit": 0,
+    "median_seconds": 1.9
+  },
+  "by_type": {
+    "lookup": {
+      "questions": 22,
+      "answer_exact_match": {
+        "n": 22,
+        "passed": 21,
+        "pct": 95.5
+      },
+      "tool_correct": {
+        "n": 22,
+        "passed": 22,
+        "pct": 100.0
+      },
+      "abstain_correct": {
+        "n": 0,
+        "passed": 0,
+        "pct": null
+      },
+      "hallucination": {
+        "n": 22,
+        "passed": 0,
+        "pct": 0.0
+      },
+      "errors": 0,
+      "step_limit": 0,
+      "median_seconds": 1.3
+    },
+    "count": {
+      "questions": 19,
+      "answer_exact_match": {
+        "n": 19,
+        "passed": 19,
+        "pct": 100.0
+      },
+      "tool_correct": {
+        "n": 19,
+        "passed": 19,
+        "pct": 100.0
+      },
+      "abstain_correct": {
+        "n": 0,
+        "passed": 0,
+        "pct": null
+      },
+      "hallucination": {
+        "n": 19,
+        "passed": 0,
+        "pct": 0.0
+      },
+      "errors": 0,
+      "step_limit": 0,
+      "median_seconds": 2.2
+    },
+    "compare": {
+      "questions": 10,
+      "answer_exact_match": {
+        "n": 10,
+        "passed": 4,
+        "pct": 40.0
+      },
+      "tool_correct": {
+        "n": 10,
+        "passed": 9,
+        "pct": 90.0
+      },
+      "abstain_correct": {
+        "n": 0,
+        "passed": 0,
+        "pct": null
+      },
+      "hallucination": {
+        "n": 10,
+        "passed": 0,
+        "pct": 0.0
+      },
+      "errors": 0,
+      "step_limit": 0,
+      "median_seconds": 3.2
+    },
+    "refuse": {
+      "questions": 9,
+      "answer_exact_match": {
+        "n": 0,
+        "passed": 0,
+        "pct": null
+      },
+      "tool_correct": {
+        "n": 5,
+        "passed": 4,
+        "pct": 80.0
+      },
+      "abstain_correct": {
+        "n": 9,
+        "passed": 1,
+        "pct": 11.1
+      },
+      "hallucination": {
+        "n": 9,
+        "passed": 4,
+        "pct": 44.4
+      },
+      "errors": 0,
+      "step_limit": 0,
+      "median_seconds": 2.0
+    }
+  },
+  "items": [
+    {
+      "id": "lookup_angron_toughness",
+      "type": "lookup",
+      "tool_correct": true,
+      "answer_correct": true,
+      "abstain_correct": null,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": 11,
+      "answer": "Angron’s Toughness value is **11**.",
+      "calls": [
+        "search",
+        "get_unit"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 5.16
+    },
+    {
+      "id": "lookup_angron_wounds",
+      "type": "lookup",
+      "tool_correct": true,
+      "answer_correct": true,
+      "abstain_correct": null,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": 16,
+      "answer": "Angron’s Wounds value is **16**.",
+      "calls": [
+        "search",
+        "get_unit"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 1.19
+    },
+    {
+      "id": "lookup_angron_oc",
+      "type": "lookup",
+      "tool_correct": true,
+      "answer_correct": true,
+      "abstain_correct": null,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": 6,
+      "answer": "Angron’s Objective Control value is **6**.",
+      "calls": [
+        "search",
+        "get_unit"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 1.23
+    },
+    {
+      "id": "lookup_warboss_leadership",
+      "type": "lookup",
+      "tool_correct": true,
+      "answer_correct": false,
+      "abstain_correct": null,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": "6+",
+      "answer": "The Warboss (the Warboss keyword) does not have an explic...",
+      "calls": [
+        "search",
+        "get_unit"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 2.46
+    },
+    {
+      "id": "lookup_imotekh_save",
+      "type": "lookup",
+      "tool_correct": true,
+      "answer_correct": true,
+      "abstain_correct": null,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": "2+",
+      "answer": "Imotekh the Stormlord has a **2+ save** (and an invulnera...",
+      "calls": [
+        "search",
+        "get_unit"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 1.42
+    },
+    {
+      "id": "lookup_hive_tyrant_move",
+      "type": "lookup",
+      "tool_correct": true,
+      "answer_correct": true,
+      "abstain_correct": null,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": 8,
+      "answer": "The Hive Tyrant moves **8 inches** per turn.",
+      "calls": [
+        "search",
+        "get_unit"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 1.34
+    },
+    {
+      "id": "lookup_wraithknight_oc",
+      "type": "lookup",
+      "tool_correct": true,
+      "answer_correct": true,
+      "abstain_correct": null,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": 10,
+      "answer": "The Wraithknight’s Objective Control value is **10**.",
+      "calls": [
+        "search",
+        "get_unit"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 1.24
+    },
+    {
+      "id": "lookup_redemptor_wounds",
+      "type": "lookup",
+      "tool_correct": true,
+      "answer_correct": true,
+      "abstain_correct": null,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": 12,
+      "answer": "The Redemptor Dreadnought has **12 Wounds**.",
+      "calls": [
+        "search",
+        "get_unit"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 1.25
+    },
+    {
+      "id": "lookup_guilliman_toughness",
+      "type": "lookup",
+      "tool_correct": true,
+      "answer_correct": true,
+      "abstain_correct": null,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": 9,
+      "answer": "Roboute Guilliman’s Toughness value is **9**.",
+      "calls": [
+        "search",
+        "get_unit"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 1.2
+    },
+    {
+      "id": "lookup_warriors_leadership",
+      "type": "lookup",
+      "tool_correct": true,
+      "answer_correct": true,
+      "abstain_correct": null,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": "7+",
+      "answer": "The Necron Warriors have a Leadership value of **7+**.",
+      "calls": [
+        "get_unit"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 1.26
+    },
+    {
+      "id": "lookup_avatar_invuln",
+      "type": "lookup",
+      "tool_correct": true,
+      "answer_correct": true,
+      "abstain_correct": null,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": "4+",
+      "answer": "The Avatar of Khaine has an **invulnerable save of 4+**.",
+      "calls": [
+        "search",
+        "get_unit"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 1.34
+    },
+    {
+      "id": "lookup_angron_invuln",
+      "type": "lookup",
+      "tool_correct": true,
+      "answer_correct": true,
+      "abstain_correct": null,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": "4+",
+      "answer": "Angron’s invulnerable save is **4+**.",
+      "calls": [
+        "get_unit"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 1.36
+    },
+    {
+      "id": "lookup_warboss_points",
+      "type": "lookup",
+      "tool_correct": true,
+      "answer_correct": true,
+      "abstain_correct": null,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": 75,
+      "answer": "A Warboss costs **75 points**.",
+      "calls": [
+        "search",
+        "get_unit"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 1.13
+    },
+    {
+      "id": "lookup_hive_tyrant_points",
+      "type": "lookup",
+      "tool_correct": true,
+      "answer_correct": true,
+      "abstain_correct": null,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": 195,
+      "answer": "A Hive Tyrant costs **195 points**.",
+      "calls": [
+        "search",
+        "get_unit"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 1.27
+    },
+    {
+      "id": "lookup_wraithknight_points",
+      "type": "lookup",
+      "tool_correct": true,
+      "answer_correct": true,
+      "abstain_correct": null,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": 435,
+      "answer": "The Wraithknight costs **435 points**.",
+      "calls": [
+        "search",
+        "get_unit"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 1.32
+    },
+    {
+      "id": "lookup_trazyn_points",
+      "type": "lookup",
+      "tool_correct": true,
+      "answer_correct": true,
+      "abstain_correct": null,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": 75,
+      "answer": "Trazyn the Infinite costs **75 points**.",
+      "calls": [
+        "search",
+        "get_unit"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 1.21
+    },
+    {
+      "id": "lookup_auric_reserves_cp",
+      "type": "lookup",
+      "tool_correct": true,
+      "answer_correct": true,
+      "abstain_correct": null,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": 2,
+      "answer": "The **Superhuman Reserves** stratagem in the Auric Champi...",
+      "calls": [
+        "get_detachment"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 1.17
+    },
+    {
+      "id": "lookup_auric_vigil_cp",
+      "type": "lookup",
+      "tool_correct": true,
+      "answer_correct": true,
+      "abstain_correct": null,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": 2,
+      "answer": "The **Vigil Unending** stratagem in the Auric Champions d...",
+      "calls": [
+        "get_detachment"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 1.25
+    },
+    {
+      "id": "lookup_martial_philosopher_cost",
+      "type": "lookup",
+      "tool_correct": true,
+      "answer_correct": true,
+      "abstain_correct": null,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": 30,
+      "answer": "The **Martial Philosopher** enhancement in the Auric Cham...",
+      "calls": [
+        "get_detachment"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 1.35
+    },
+    {
+      "id": "lookup_panoptispex_cost",
+      "type": "lookup",
+      "tool_correct": true,
+      "answer_correct": true,
+      "abstain_correct": null,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": 5,
+      "answer": "The **Panoptispex** enhancement in the **Shield Host** de...",
+      "calls": [
+        "get_detachment"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 0.88
+    },
+    {
+      "id": "lookup_shoulder_phase",
+      "type": "lookup",
+      "tool_correct": true,
+      "answer_correct": true,
+      "abstain_correct": null,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": "movement",
+      "answer": "The **Shoulder the Mantle** stratagem in the Auric Champi...",
+      "calls": [
+        "get_detachment"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 1.31
+    },
+    {
+      "id": "lookup_dropship_transport",
+      "type": "lookup",
+      "tool_correct": true,
+      "answer_correct": true,
+      "abstain_correct": null,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": 12,
+      "answer": "The Orion Assault Dropship can transport **12 Adeptus Cus...",
+      "calls": [
+        "search",
+        "get_unit"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 2.49
+    },
+    {
+      "id": "count_roster_adeptus_custodes",
+      "type": "count",
+      "tool_correct": true,
+      "answer_correct": true,
+      "abstain_correct": null,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": 31,
+      "answer": "The Adeptus Custodes can field **31 distinct units**.",
+      "calls": [
+        "list_factions",
+        "get_roster"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 2.09
+    },
+    {
+      "id": "count_roster_necrons",
+      "type": "count",
+      "tool_correct": true,
+      "answer_correct": true,
+      "abstain_correct": null,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": 64,
+      "answer": "The Necrons can field **64 units** in the 10th‑edition Wa...",
+      "calls": [
+        "get_roster"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 2.45
+    },
+    {
+      "id": "count_roster_orks",
+      "type": "count",
+      "tool_correct": true,
+      "answer_correct": true,
+      "abstain_correct": null,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": 87,
+      "answer": "The Orks can field **87** different units in the 10th‑edi...",
+      "calls": [
+        "get_roster"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 2.55
+    },
+    {
+      "id": "count_roster_tyranids",
+      "type": "count",
+      "tool_correct": true,
+      "answer_correct": true,
+      "abstain_correct": null,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": 57,
+      "answer": "The Tyranids can field **57 units** in the 10th‑edition W...",
+      "calls": [
+        "get_roster"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 2.29
+    },
+    {
+      "id": "count_roster_leagues_of_votann",
+      "type": "count",
+      "tool_correct": true,
+      "answer_correct": true,
+      "abstain_correct": null,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": 22,
+      "answer": "The Leagues of Votann can field **22 units**.",
+      "calls": [
+        "get_roster"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 1.48
+    },
+    {
+      "id": "count_keyword_psyker",
+      "type": "count",
+      "tool_correct": true,
+      "answer_correct": true,
+      "abstain_correct": null,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": 143,
+      "answer": "**143** units have the **Psyker** keyword in the 10th‑edi...",
+      "calls": [
+        "units_with_keyword"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 2.21
+    },
+    {
+      "id": "count_keyword_monster",
+      "type": "count",
+      "tool_correct": true,
+      "answer_correct": true,
+      "abstain_correct": null,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": 104,
+      "answer": "**104 units** have the **Monster** keyword in the 10th‑ed...",
+      "calls": [
+        "units_with_keyword"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 2.49
+    },
+    {
+      "id": "count_keyword_aircraft",
+      "type": "count",
+      "tool_correct": true,
+      "answer_correct": true,
+      "abstain_correct": null,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": 95,
+      "answer": "**95 units** have the **Aircraft** keyword in the 10th‑ed...",
+      "calls": [
+        "units_with_keyword"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 2.55
+    },
+    {
+      "id": "count_keyword_fortification",
+      "type": "count",
+      "tool_correct": true,
+      "answer_correct": true,
+      "abstain_correct": null,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": 45,
+      "answer": "There are **45** units in the 10th‑edition Warhammer 40,0...",
+      "calls": [
+        "units_with_keyword"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 2.17
+    },
+    {
+      "id": "count_ability_feel_no_pain",
+      "type": "count",
+      "tool_correct": true,
+      "answer_correct": true,
+      "abstain_correct": null,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": 116,
+      "answer": "**116 units** have the **Feel No Pain** ability in the 10...",
+      "calls": [
+        "units_with_ability"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 2.43
+    },
+    {
+      "id": "count_ability_deep_strike",
+      "type": "count",
+      "tool_correct": true,
+      "answer_correct": true,
+      "abstain_correct": null,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": 356,
+      "answer": "**356 units** in the 10th‑edition Warhammer 40,000 have t...",
+      "calls": [
+        "units_with_ability"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 2.72
+    },
+    {
+      "id": "count_ability_lone_operative",
+      "type": "count",
+      "tool_correct": true,
+      "answer_correct": true,
+      "abstain_correct": null,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": 52,
+      "answer": "**52** units in the 10th‑edition Warhammer 40,000 have th...",
+      "calls": [
+        "units_for_rule",
+        "units_with_ability"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 2.96
+    },
+    {
+      "id": "count_ability_scouts",
+      "type": "count",
+      "tool_correct": true,
+      "answer_correct": true,
+      "abstain_correct": null,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": 110,
+      "answer": "There are **110** units in the 10th‑edition Warhammer 40,...",
+      "calls": [
+        "units_with_ability"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 2.52
+    },
+    {
+      "id": "count_shield_host_stratagems",
+      "type": "count",
+      "tool_correct": true,
+      "answer_correct": true,
+      "abstain_correct": null,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": 6,
+      "answer": "The Shield Host detachment includes **6 stratagems**.",
+      "calls": [
+        "get_detachment"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 1.24
+    },
+    {
+      "id": "count_voyagers_in_darkness_stratagems",
+      "type": "count",
+      "tool_correct": true,
+      "answer_correct": true,
+      "abstain_correct": null,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": 4,
+      "answer": "The **Voyagers in Darkness** detachment includes **4 stra...",
+      "calls": [
+        "get_detachment"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 0.97
+    },
+    {
+      "id": "count_blood_legion_rules",
+      "type": "count",
+      "tool_correct": true,
+      "answer_correct": true,
+      "abstain_correct": null,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": 2,
+      "answer": "The **Blood Legion** detachment contains **2 rules** (the...",
+      "calls": [
+        "search",
+        "get_detachment"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 1.95
+    },
+    {
+      "id": "count_eldritch_raiders_rules",
+      "type": "count",
+      "tool_correct": true,
+      "answer_correct": true,
+      "abstain_correct": null,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": 2,
+      "answer": "The Eldritch Raiders detachment includes **2 rules** (the...",
+      "calls": [
+        "get_detachment"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 1.36
+    },
+    {
+      "id": "count_black_ship_guardians_enhancements",
+      "type": "count",
+      "tool_correct": true,
+      "answer_correct": true,
+      "abstain_correct": null,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": 2,
+      "answer": "The **Black Ship Guardians** detachment includes **2 enha...",
+      "calls": [
+        "get_detachment"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 0.87
+    },
+    {
+      "id": "count_factions",
+      "type": "count",
+      "tool_correct": true,
+      "answer_correct": true,
+      "abstain_correct": null,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": 26,
+      "answer": "There are **26 factions** in the Warhammer 40,000 10th‑ed...",
+      "calls": [
+        "bundle_info"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 0.75
+    },
+    {
+      "id": "compare_angron_warboss_toughness",
+      "type": "compare",
+      "tool_correct": true,
+      "answer_correct": false,
+      "abstain_correct": null,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": "yes",
+      "answer": "no",
+      "calls": [
+        "search",
+        "search",
+        "get_unit",
+        "search",
+        "get_unit"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 4.18
+    },
+    {
+      "id": "compare_warboss_tyrant_toughness",
+      "type": "compare",
+      "tool_correct": true,
+      "answer_correct": true,
+      "abstain_correct": null,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": "no",
+      "answer": "no",
+      "calls": [
+        "search",
+        "get_unit",
+        "search",
+        "get_unit"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 3.86
+    },
+    {
+      "id": "compare_immortals_lychguard_toughness",
+      "type": "compare",
+      "tool_correct": true,
+      "answer_correct": false,
+      "abstain_correct": null,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": "yes",
+      "answer": "no",
+      "calls": [
+        "search",
+        "get_unit",
+        "get_unit"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 1.98
+    },
+    {
+      "id": "compare_warriors_immortals_toughness",
+      "type": "compare",
+      "tool_correct": false,
+      "answer_correct": true,
+      "abstain_correct": null,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": "no",
+      "answer": "no",
+      "calls": [],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 0.14
+    },
+    {
+      "id": "compare_wraithknight_avatar_wounds",
+      "type": "compare",
+      "tool_correct": true,
+      "answer_correct": false,
+      "abstain_correct": null,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": "yes",
+      "answer": "no",
+      "calls": [
+        "search",
+        "get_unit",
+        "search",
+        "get_unit"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 2.14
+    },
+    {
+      "id": "compare_tyrant_guilliman_points",
+      "type": "compare",
+      "tool_correct": true,
+      "answer_correct": false,
+      "abstain_correct": null,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": "yes",
+      "answer": "no",
+      "calls": [
+        "search",
+        "get_unit",
+        "search",
+        "get_unit"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 3.38
+    },
+    {
+      "id": "compare_trazyn_warboss_points",
+      "type": "compare",
+      "tool_correct": true,
+      "answer_correct": false,
+      "abstain_correct": null,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": "yes",
+      "answer": "no",
+      "calls": [
+        "search",
+        "get_unit",
+        "search",
+        "get_unit"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 4.11
+    },
+    {
+      "id": "compare_psyker_monster_keyword",
+      "type": "compare",
+      "tool_correct": true,
+      "answer_correct": false,
+      "abstain_correct": null,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": "yes",
+      "answer": "no",
+      "calls": [
+        "units_with_keyword",
+        "units_with_keyword"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 4.15
+    },
+    {
+      "id": "compare_higher_wounds",
+      "type": "compare",
+      "tool_correct": true,
+      "answer_correct": true,
+      "abstain_correct": null,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": 5,
+      "answer": "Eldrad Ulthran has **5 Wounds**, while a Canoness has **4...",
+      "calls": [
+        "search",
+        "get_unit",
+        "search",
+        "get_unit"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 3.09
+    },
+    {
+      "id": "compare_higher_toughness",
+      "type": "compare",
+      "tool_correct": true,
+      "answer_correct": true,
+      "abstain_correct": null,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": 11,
+      "answer": "Angron has a Toughness of **11**, while Roboute Guilliman...",
+      "calls": [
+        "search",
+        "get_unit",
+        "search",
+        "get_unit"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 2.51
+    },
+    {
+      "id": "refuse_invented_unit_toughness",
+      "type": "refuse",
+      "tool_correct": true,
+      "answer_correct": null,
+      "abstain_correct": false,
+      "hallucinated": true,
+      "hallucinated_numbers": [
+        "4"
+      ],
+      "expected": null,
+      "answer": "**Lord Zarthus the Undying** is a **Lord** character in t...",
+      "calls": [
+        "search",
+        "get_unit",
+        "search",
+        "get_roster",
+        "get_unit",
+        "search",
+        "search"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 7.04
+    },
+    {
+      "id": "refuse_invented_unit_points",
+      "type": "refuse",
+      "tool_correct": false,
+      "answer_correct": null,
+      "abstain_correct": true,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": null,
+      "answer": "The **Grimdark Kitten Brigade** is not a named detachment...",
+      "calls": [
+        "search",
+        "get_detachment",
+        "get_detachment"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 4.18
+    },
+    {
+      "id": "refuse_invented_stratagem",
+      "type": "refuse",
+      "tool_correct": true,
+      "answer_correct": null,
+      "abstain_correct": false,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": null,
+      "answer": "The **Banana Strike** stratagem in the **Shield Host** de...",
+      "calls": [
+        "get_detachment"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 1.12
+    },
+    {
+      "id": "refuse_invented_faction",
+      "type": "refuse",
+      "tool_correct": true,
+      "answer_correct": null,
+      "abstain_correct": false,
+      "hallucinated": true,
+      "hallucinated_numbers": [
+        "0"
+      ],
+      "expected": null,
+      "answer": "The **Squats** are not listed among the factions in the 1...",
+      "calls": [
+        "list_factions",
+        "get_roster",
+        "search",
+        "search"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 3.32
+    },
+    {
+      "id": "refuse_invented_keyword",
+      "type": "refuse",
+      "tool_correct": true,
+      "answer_correct": null,
+      "abstain_correct": false,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": null,
+      "answer": "There is **1** unit with the keyword **Thunderwolf Cavalr...",
+      "calls": [
+        "units_with_keyword",
+        "units_with_keyword"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 1.39
+    },
+    {
+      "id": "refuse_missing_stat",
+      "type": "refuse",
+      "tool_correct": null,
+      "answer_correct": null,
+      "abstain_correct": false,
+      "hallucinated": true,
+      "hallucinated_numbers": [
+        "5"
+      ],
+      "expected": null,
+      "answer": "Eldrad Ulthran has **Warp Charge 5**. This is listed in h...",
+      "calls": [
+        "search",
+        "get_unit"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 1.79
+    },
+    {
+      "id": "refuse_other_edition",
+      "type": "refuse",
+      "tool_correct": null,
+      "answer_correct": null,
+      "abstain_correct": false,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": null,
+      "answer": "Angron’s Toughness in the 9th‑edition Warhammer 40,000 da...",
+      "calls": [
+        "search",
+        "get_unit"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 1.33
+    },
+    {
+      "id": "refuse_future_edition",
+      "type": "refuse",
+      "tool_correct": null,
+      "answer_correct": null,
+      "abstain_correct": false,
+      "hallucinated": false,
+      "hallucinated_numbers": [],
+      "expected": null,
+      "answer": "In the 11th‑edition Warhammer 40,000 rules the Intercesso...",
+      "calls": [
+        "search",
+        "get_unit"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 2.01
+    },
+    {
+      "id": "refuse_out_of_scope_price",
+      "type": "refuse",
+      "tool_correct": null,
+      "answer_correct": null,
+      "abstain_correct": false,
+      "hallucinated": true,
+      "hallucinated_numbers": [
+        "39.99"
+      ],
+      "expected": null,
+      "answer": "The Angron miniature is priced at **$39.99** (USD) in the...",
+      "calls": [
+        "search",
+        "get_unit"
+      ],
+      "stopped": "answered",
+      "error": "",
+      "seconds": 2.3
+    }
+  ]
+}
