@@ -26,6 +26,8 @@ Each application has its own guide:
 - [wh-ask](getting-started/wh-ask.md) — Rust library that opens the bundle and returns typed results.
 - [wh-mcp](getting-started/wh-mcp.md) — MCP server that exposes the library to an AI agent over stdio.
 - [Ollama host](getting-started/ollama-host.md) — a Python example that connects a local Ollama model to `wh-mcp`, with a comparison of five local models.
+- [llama.cpp host](getting-started/llamacpp-host.md) — the same host with llama.cpp's `llama-server` instead of Ollama, serving the same model files.
+- [Evals](../evals/README.md) — a golden question set, a runner through the real agent, and a deterministic grader, with a recorded baseline.
 
 The contracts those tools follow are the specifications. Read them in this order when you need the frozen field lists, not the install steps:
 

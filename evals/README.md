@@ -30,7 +30,9 @@ golden.jsonl ──► run.py ──► examples/ollama-host/host.py (the produc
 | `grade.py` | The grader: `python -m evals.grade <results dir>`. |
 | `test_golden_run.py` | The runner as a pytest test, marked `eval`. |
 | `test_eval_harness.py` | Offline tests of the golden file, the grader, and the runner (scripted fake model, real `wh-mcp`). |
-| `baseline/` | A checked-in sample: one graded summary from a real run on this machine. |
+| `baseline/` | The control: one graded summary from a real run on this machine (Ollama). |
+| `baseline-llamacpp/` | The same model and questions served by llama.cpp, for comparing against a llama.cpp-served model. |
+| `comparison/` | Five models on both servers, one graded sample each, with a generated table (`python -m evals.compare evals/results/*`) and notes. |
 | `results/` | Your runs. Gitignored. |
 
 **Keep `golden.jsonl` out of any training data.** If a model is ever fine-tuned, these questions and answers must not be in what it trains on, or the score stops measuring anything.
@@ -104,6 +106,8 @@ python -m evals.run --model granite4.1:8b
 pytest evals -m eval --eval-model granite4.1:8b -s
 ```
 
+To use llama.cpp's `llama-server` instead of Ollama, start it with `python examples/ollama-host/serve_llamacpp.py --ollama-model granite4.1:8b` and add `--backend llamacpp` (CLI) or `--eval-backend llamacpp` (pytest). See the [llama.cpp host guide](../docs/getting-started/llamacpp-host.md). The backend is recorded in `run.json` and in the run id.
+
 The first is the CLI. The second is the same run as a pytest test, which fails if the pipeline breaks and prints the aggregate. Plain `pytest` runs only the offline tests and skips the live one.
 
 Useful options (CLI names; the pytest ones are `--eval-model`, `--eval-ids`, `--eval-run-id`, `--eval-temperature`, `--eval-results-dir`):
@@ -158,6 +162,10 @@ What the baseline says, so later work knows where the room is:
 The first live attempt at this run was graded before two grader fixes (a count is judged on its first number, and the word "one" in prose is not a quantity). Grading is deterministic from the saved traces, so the traces were graded again with the final grader; the model was not re-run.
 
 Later prompt, verifier, or fine-tuning work must beat these numbers on the same golden set, same grader, same settings. A new golden set (see above) needs a new baseline.
+
+The same model served by llama.cpp (`baseline-llamacpp/`, build b11476, same weights from the same file) scored 96.1% answer exact match, 96.4% tool correct, 33.3% abstain correct, and 3.3% hallucination, with a median of 4.5 s per question. That is within one run's noise of the Ollama control. Compare a model with a baseline from the same server, build, and context size.
+
+Two grader fixes were made after the first runs and the traces were re-graded each time without re-running the model: a count is judged on its first number and the word "one" is not a quantity; a node id the agent cites in its answer (`10ed:datasheet:000000614`) is not a number. Re-grading left the Ollama control's numbers unchanged.
 
 ## Why this exists
 

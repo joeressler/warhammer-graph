@@ -25,7 +25,9 @@ bundle = _host_conftest.bundle
 
 def pytest_addoption(parser: pytest.Parser) -> None:
     group = parser.getgroup("eval")
-    group.addoption("--eval-model", default=None, help="Ollama model for -m eval (default: the host's default).")
+    group.addoption("--eval-model", default=None, help="Model for -m eval (default: the host's default).")
+    group.addoption("--eval-backend", choices=("ollama", "llamacpp"), default="ollama", help="Model server for -m eval.")
+    group.addoption("--eval-base-url", default=None, help="llama-server URL for --eval-backend llamacpp.")
     group.addoption("--eval-run-id", default=None, help="Run id (default: timestamp + model).")
     group.addoption("--eval-ids", default=None, help="Comma-separated question ids (default: all).")
     group.addoption("--eval-temperature", type=float, default=0.0)

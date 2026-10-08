@@ -12,6 +12,9 @@ Run it:
     python examples/ollama-host/host.py            # interactive
 
 The model must support tool calling (`ollama show <model>` lists `tools`).
+
+To use llama.cpp instead of Ollama, start `llama-server` with `--jinja` (see
+`serve_llamacpp.py`) and add `--backend llamacpp`.
 """
 
 from __future__ import annotations
@@ -170,6 +173,25 @@ class OllamaChat:
         )
 
 
+BACKENDS = ("ollama", "llamacpp")
+
+
+def make_chat(backend: str, model: str, *, url: str | None = None, num_ctx: int = DEFAULT_NUM_CTX, temperature: float = 0.0) -> ChatFn:
+    """The chat function for a backend.
+
+    `url` is the Ollama host or the llama-server base URL, each defaulting to the
+    local one. `num_ctx` sets Ollama's context window; llama-server fixes its own
+    when it starts (`-c`), so it is ignored there.
+    """
+    if backend == "ollama":
+        return OllamaChat(model, host=url, num_ctx=num_ctx, temperature=temperature)
+    if backend == "llamacpp":
+        from llamacpp import LlamaServerChat
+
+        return LlamaServerChat(model, base_url=url, temperature=temperature)
+    raise ValueError(f"unknown backend {backend!r}; choose one of: {', '.join(BACKENDS)}")
+
+
 class Host:
     """A conversation between a model and the wh-mcp tools."""
 
@@ -254,10 +276,12 @@ def trace_step(step: Step) -> None:
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Ask a local Ollama model questions through the wh-mcp server.")
     parser.add_argument("--ask", help="One question to answer, then exit. Omit for an interactive prompt.")
-    parser.add_argument("--model", default=DEFAULT_MODEL, help=f"Ollama model (default {DEFAULT_MODEL}).")
+    parser.add_argument("--backend", choices=BACKENDS, default="ollama", help="Model server: Ollama, or llama.cpp's llama-server (started with --jinja).")
+    parser.add_argument("--model", default=DEFAULT_MODEL, help=f"Model name (default {DEFAULT_MODEL}). For llama-server it is only a label.")
     parser.add_argument("--bundle", type=Path, default=ROOT / "bundle", help="Graph bundle directory.")
     parser.add_argument("--exe", type=Path, default=None, help="Path to wh-mcp (default: target/release or target/debug).")
     parser.add_argument("--ollama-host", default=None, help="Ollama server URL (default: the local one).")
+    parser.add_argument("--base-url", default=None, help="llama-server URL for --backend llamacpp (default http://localhost:8080).")
     parser.add_argument("--num-ctx", type=int, default=DEFAULT_NUM_CTX, help="Model context window in tokens.")
     parser.add_argument("--temperature", type=float, default=0.0)
     parser.add_argument("--max-steps", type=int, default=DEFAULT_MAX_STEPS, help="Most tool-calling rounds per question.")
@@ -280,7 +304,8 @@ async def run(args: argparse.Namespace) -> int:
         except ValueError as error:
             print(f"host: {error}", file=sys.stderr)
             return 2
-        chat = OllamaChat(args.model, host=args.ollama_host, num_ctx=args.num_ctx, temperature=args.temperature)
+        url = args.base_url if args.backend == "llamacpp" else args.ollama_host
+        chat = make_chat(args.backend, args.model, url=url, num_ctx=args.num_ctx, temperature=args.temperature)
         host = Host(
             client,
             chat,
@@ -290,7 +315,7 @@ async def run(args: argparse.Namespace) -> int:
             max_tool_chars=args.max_tool_chars,
             on_step=trace_step if args.trace else None,
         )
-        print(f"host: {args.model} with {len(tools)} tools", file=sys.stderr)
+        print(f"host: {args.model} ({args.backend}) with {len(tools)} tools", file=sys.stderr)
         if args.ask:
             print((await host.ask(args.ask)).text)
             return 0

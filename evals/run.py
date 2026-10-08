@@ -2,10 +2,12 @@
 
     python -m evals.run --model granite4.1:8b
     python -m evals.run --model granite4.1:8b --ids lookup_angron_toughness,count_factions
+    python -m evals.run --backend llamacpp --model granite4.1:8b     # llama-server on :8080
     pytest evals -m eval --eval-model granite4.1:8b
 
 Each question gets a fresh conversation (`host.Host`) over one running wh-mcp
-server. Ollama only serves the model. The loop that calls the tools is the one in
+server. The model server (Ollama, or llama.cpp's llama-server with
+`--backend llamacpp`) only serves the model. The loop that calls the tools is the one in
 `examples/ollama-host/host.py`. Traces go to `evals/results/<run_id>/<id>.json`,
 then `evals.grade` writes `summary.json` and `summary.md` beside them.
 
@@ -50,9 +52,11 @@ def is_hard(error: BaseException) -> bool:
     return isinstance(error, (ConnectionError, httpx.TransportError, OSError))
 
 
-def make_run_id(model: str, now: datetime | None = None) -> str:
+def make_run_id(model: str, now: datetime | None = None, backend: str = "ollama") -> str:
+    """`<UTC timestamp>_<model>`, with `_<backend>` added for anything but Ollama."""
     stamp = (now or datetime.now(timezone.utc)).strftime("%Y%m%d-%H%M%S")
-    return f"{stamp}_{re.sub(r'[^A-Za-z0-9.-]+', '-', model)}"
+    suffix = "" if backend == "ollama" else f"_{backend}"
+    return f"{stamp}_{re.sub(r'[^A-Za-z0-9.-]+', '-', model)}{suffix}"
 
 
 def build_trace(item: dict[str, Any], run_id: str, model: str, conversation: Any, answer: Any, seconds: float, error: str) -> dict[str, Any]:
@@ -115,6 +119,9 @@ async def run_golden(
     max_tool_chars: int = host.DEFAULT_MAX_TOOL_CHARS,
     timeout: float = 240.0,
     ollama_host: str | None = None,
+    backend: str = "ollama",
+    base_url: str | None = None,
+    server: dict[str, Any] | None = None,
     golden_path: Path = GOLDEN,
     progress: Callable[[str], None] | None = None,
 ) -> Path:
@@ -124,9 +131,13 @@ async def run_golden(
     """
     directory = results_dir / run_id
     directory.mkdir(parents=True, exist_ok=True)
-    chat_factory = chat_factory or (lambda name: host.OllamaChat(name, host=ollama_host, num_ctx=num_ctx, temperature=temperature))
+    url = base_url if backend == "llamacpp" else ollama_host
+    chat_factory = chat_factory or (lambda name: host.make_chat(backend, name, url=url, num_ctx=num_ctx, temperature=temperature))
+    server = server or {}
     meta: dict[str, Any] = {
-        "run_id": run_id, "model": model, "temperature": temperature, "num_ctx": num_ctx, "max_steps": max_steps,
+        "run_id": run_id, "model": model, "backend": backend, "temperature": temperature,
+        # llama-server fixes its own context window when it starts, so report the one it reports.
+        "num_ctx": server.get("n_ctx") or num_ctx, "server": server, "max_steps": max_steps,
         "max_tool_chars": max_tool_chars, "timeout": timeout, "questions": len(items), "git_commit": git_commit(),
         "corpus_fingerprint": fingerprint(bundle), "golden_sha256": hashlib.sha256(golden_path.read_bytes()).hexdigest() if golden_path.exists() else "",
         "started_at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "status": "running",
@@ -174,8 +185,19 @@ async def run_golden(
     return directory
 
 
-async def preflight(model: str, ollama_host: str | None) -> str | None:
+async def preflight(model: str, ollama_host: str | None, backend: str = "ollama", base_url: str | None = None) -> str | None:
     """None if the model is ready, otherwise a message saying what to fix."""
+    if backend == "llamacpp":
+        from llamacpp import DEFAULT_BASE_URL, server_info
+
+        try:
+            await server_info(base_url)
+        except Exception as error:
+            return (
+                f"Could not reach llama-server at {base_url or DEFAULT_BASE_URL} ({type(error).__name__}). "
+                "Start it with: python examples/ollama-host/serve_llamacpp.py --ollama-model <name>"
+            )
+        return None
     try:
         await ollama.AsyncClient(host=ollama_host).show(model)
     except ollama.ResponseError as error:
@@ -187,8 +209,9 @@ async def preflight(model: str, ollama_host: str | None) -> str | None:
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--model", default=host.DEFAULT_MODEL)
-    parser.add_argument("--run-id", default=None, help="Default: <UTC timestamp>_<model>.")
+    parser.add_argument("--backend", choices=host.BACKENDS, default="ollama", help="Model server (default ollama).")
+    parser.add_argument("--model", default=host.DEFAULT_MODEL, help="Model name; for llama-server it is only a label.")
+    parser.add_argument("--run-id", default=None, help="Default: <UTC timestamp>_<model>, plus _llamacpp for that backend.")
     parser.add_argument("--results-dir", type=Path, default=RESULTS)
     parser.add_argument("--golden", type=Path, default=GOLDEN)
     parser.add_argument("--ids", default=None, help="Comma-separated question ids (default: all).")
@@ -196,6 +219,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--bundle", type=Path, default=ROOT / "bundle")
     parser.add_argument("--exe", type=Path, default=None)
     parser.add_argument("--ollama-host", default=None)
+    parser.add_argument("--base-url", default=None, help="llama-server URL for --backend llamacpp (default http://localhost:8080).")
     parser.add_argument("--temperature", type=float, default=0.0)
     parser.add_argument("--num-ctx", type=int, default=host.DEFAULT_NUM_CTX)
     parser.add_argument("--max-steps", type=int, default=host.DEFAULT_MAX_STEPS)
@@ -223,19 +247,25 @@ async def amain(args: argparse.Namespace) -> int:
     if not (args.bundle / "graph.db").exists():
         print(f"run: no bundle at {args.bundle}. Build it with: python scripts/setup.py", file=sys.stderr)
         return 2
-    problem = await preflight(args.model, args.ollama_host)
+    problem = await preflight(args.model, args.ollama_host, args.backend, args.base_url)
     if problem:
         print(f"run: {problem}", file=sys.stderr)
         return 2
+    server: dict[str, Any] = {}
+    if args.backend == "llamacpp":
+        from llamacpp import server_info
+
+        server = await server_info(args.base_url)
     items = select(load_golden(args.golden), args.ids, args.limit)
-    run_id = args.run_id or make_run_id(args.model)
-    print(f"run {run_id}: {len(items)} questions with {args.model}", file=sys.stderr)
+    run_id = args.run_id or make_run_id(args.model, backend=args.backend)
+    print(f"run {run_id}: {len(items)} questions with {args.model} ({args.backend})", file=sys.stderr)
     status = 0
     try:
         directory = await run_golden(
             items, model=args.model, run_id=run_id, results_dir=args.results_dir, bundle=args.bundle, exe=exe,
             temperature=args.temperature, num_ctx=args.num_ctx, max_steps=args.max_steps, max_tool_chars=args.max_tool_chars,
-            timeout=args.timeout, ollama_host=args.ollama_host, golden_path=args.golden,
+            timeout=args.timeout, ollama_host=args.ollama_host, backend=args.backend, base_url=args.base_url,
+            server=server, golden_path=args.golden,
             progress=lambda line: print(line, file=sys.stderr, flush=True),
         )
     except HardFailure as failure:
