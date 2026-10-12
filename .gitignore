@@ -12,3 +12,4 @@ bundle/
 *.db-wal
 *.db-shm
 evals/results/
+models/
